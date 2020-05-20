@@ -25,5 +25,8 @@ _testmain.go
 *.prof
 
 
+# Generated content
+coverage.xml
+
 # IDEA
 /.idea
