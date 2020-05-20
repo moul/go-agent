@@ -1,0 +1,3 @@
+test_quick:
+	go test ./...
+
