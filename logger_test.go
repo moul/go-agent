@@ -112,7 +112,7 @@ func TestAgent_SetLogger(t *testing.T) {
 		wantSame bool
 	}{
 		{"nil", nil, false},
-		{"zerolog/writer", func() *zerolog.Logger { l := zerolog.Nop(); return &l }(), true},
+		{"zerolog/logger", func() *zerolog.Logger { l := zerolog.Nop(); return &l }(), true},
 		{"other", &strings.Builder{}, false},
 	}
 	for _, tt := range eventTests {
