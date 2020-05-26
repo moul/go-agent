@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Test (unit, quick)" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="Unit tests, quick" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="bearer-go-agent" />
     <working_directory value="$PROJECT_DIR$/" />
     <go_parameters value="-i" />
@@ -18,7 +18,6 @@
     <package value="github.com/bearer/go-agent" />
     <directory value="$PROJECT_DIR$/" />
     <filePath value="$PROJECT_DIR$/" />
-    <pattern value="./..." />
     <method v="2" />
   </configuration>
 </component>
