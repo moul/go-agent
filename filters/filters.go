@@ -16,12 +16,9 @@ func (s Stage) Next() Stage {
 		return StageResponse
 	case StageResponse:
 		return StageBodies
-	case StageUndefined:
-	case StageInvalid:
 	default:
 		return StageInvalid
 	}
-	return StageInvalid
 }
 
 const (
@@ -67,10 +64,13 @@ func (ft filterType) WantsResponse() bool {
 // Filter defines the behaviour common to all filters
 type Filter interface {
 	Type() FilterType
-	// Matches checks whether the filter, with its configuration, matches the
+	// MatchesCall checks whether the filter, with its configuration, matches the
 	// request and response passed to it, if any: some filters may not need a
 	// request nor a response, in which case nil is a valid value to pass them.
-	Matches(*http.Request, *http.Response) bool
+	MatchesCall(*http.Request, *http.Response) bool
+	// SetMatcher assigns a specific Matcher instance to the filter.
+	// Passing a nil matcher will assign a filter-specific default Matcher.
+	SetMatcher(Matcher) error
 }
 
 var (
@@ -91,5 +91,5 @@ var (
 	responseBodiesFilter FilterType = filterType{"ResponseBodiesFilter", false, true}
 
 	connectionErrorFilter FilterType = filterType{"ConnectionErrorFilter", false, false}
-	yesInternalFilter     FilterType = filterType{"yesFilter", false, false}
+	yesInternalFilter     FilterType = filterType{"YesFilter", false, false}
 )

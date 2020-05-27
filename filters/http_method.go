@@ -20,8 +20,8 @@ func (*HTTPMethodFilter) Type() FilterType {
 	return httpMethodFilter
 }
 
-// Matches is part of the Filter interface.
-func (f *HTTPMethodFilter) Matches(r *http.Request, _ *http.Response) bool {
+// MatchesCall is part of the Filter interface.
+func (f *HTTPMethodFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
 	// No need to sanitize method, as we want a byte for byte comparaison.
 	return r.Method == f.Method
 }

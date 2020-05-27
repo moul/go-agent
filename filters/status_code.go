@@ -1,15 +1,13 @@
 package filters
 
 import (
+	"fmt"
 	"net/http"
 )
 
-// StatusValid is a range covering the valid HTTP status code range.
-var StatusValid = NewRange().ExcludeTo().From(100).To(600)
-
 // StatusCodeFilter provides a filter for the response status code in API requests.
 type StatusCodeFilter struct {
-	Range
+	RangeMatcher
 }
 
 // Type is part of the Filter interface.
@@ -17,19 +15,34 @@ func (*StatusCodeFilter) Type() FilterType {
 	return statusCodeFilter
 }
 
-// Matches is part of the Filter interface.
-func (f *StatusCodeFilter) Matches(_ *http.Request, s *http.Response) bool {
-	return f.Range.Contains(s.StatusCode)
+func (f *StatusCodeFilter) ensureMatcher() {
+	if f.RangeMatcher != nil {
+		return
+	}
+	if err := f.SetMatcher(NewHTTPStatusMatcher()); err != nil {
+		// Should not happen, by code structure.
+		panic(err)
+	}
 }
 
-// SetRange sets the filter Range. A nil Range mean any valid StatusCode.
+// MatchesCall is part of the Filter interface.
+func (f *StatusCodeFilter) MatchesCall(_ *http.Request, s *http.Response) bool {
+	f.ensureMatcher()
+	return f.Matches(s.StatusCode)
+}
+
+// SetMatcher sets the filter RangeMatcher. A nil RangeMatcher mean any valid StatusCode.
 //
-// If the returned error is not nil, the Range cannot be used. There is currently
-// no condition causing an error.
-func (f *StatusCodeFilter) SetRange(r Range) error {
-	if r == nil {
-		r = StatusValid
+// If the returned error is not nil, the RangeMatcher is rejected.
+func (f *StatusCodeFilter) SetMatcher(matcher Matcher) error {
+	if matcher == nil {
+		matcher = NewHTTPStatusMatcher()
 	}
-	f.Range = r
+	rm, ok := matcher.(RangeMatcher)
+	if !ok {
+		f.ensureMatcher()
+		return fmt.Errorf("the StatusCodeFilter only accepts RangeMatchers: got %T", matcher)
+	}
+	f.RangeMatcher = rm
 	return nil
 }
