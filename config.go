@@ -39,6 +39,7 @@ type Config struct {
 
 	// Rules.
 	dataCollectionRules []DataCollectionRule
+	Rules               []interface{} // XXX Agent spec defines the field but no use for it.
 	filters             []Filter
 
 	// Internal dev. options.
