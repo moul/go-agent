@@ -23,8 +23,8 @@ func TestRegexMatcher_Matches(t *testing.T) {
 		check    interface{}
 		expected bool
 	}{
-		{NewEmptyRegexMatcher(), ``, true},
-		{NewEmptyRegexMatcher(), BearerDomain, true},
+		{NewEmptyRegexpMatcher(), ``, true},
+		{NewEmptyRegexpMatcher(), BearerDomain, true},
 		{&BearerMatcher, ``, false},
 		{&BearerMatcher, BearerDomain, true},
 		{&BearerMatcher, errors.New(BearerDomain), true},
@@ -48,7 +48,7 @@ func TestRegexMatcher_Regexp(t *testing.T) {
 	matcher := NewRegexpMatcher(BearerRE)
 	rm, ok := matcher.(*regexMatcher)
 	if !ok {
-		t.Fatalf("expected %T matcher, got %T", NewEmptyRegexMatcher(), matcher)
+		t.Fatalf("expected %T matcher, got %T", NewEmptyRegexpMatcher(), matcher)
 	}
 	actual := rm.Regexp().String()
 	expected := regexp.MustCompile(BearerRE).String()

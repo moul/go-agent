@@ -19,7 +19,7 @@ func (f *DomainFilter) ensureMatcher() {
 	if f.RegexpMatcher != nil {
 		return
 	}
-	if err := f.SetMatcher(NewEmptyRegexMatcher()); err != nil {
+	if err := f.SetMatcher(NewEmptyRegexpMatcher()); err != nil {
 		// Should not happen, by code structure.
 		panic(err)
 	}
@@ -42,7 +42,7 @@ func (f *DomainFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
 // DomainFilter should always use a case-insensitive match.
 func (f *DomainFilter) SetMatcher(matcher Matcher) error {
 	if matcher == nil {
-		matcher = NewEmptyRegexMatcher()
+		matcher = NewEmptyRegexpMatcher()
 	}
 	rm, ok := matcher.(RegexpMatcher)
 	if !ok {

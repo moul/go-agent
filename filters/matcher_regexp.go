@@ -8,8 +8,8 @@ import (
 // EmptyRegexp is the compiled regexp for the empty string.
 var EmptyRegexp = regexp.MustCompile(``)
 
-// NewEmptyRegexMatcher provides a default all-accepting matcher.
-var NewEmptyRegexMatcher = func() RegexpMatcher {
+// NewEmptyRegexpMatcher provides a default all-accepting matcher.
+var NewEmptyRegexpMatcher = func() RegexpMatcher {
 	return &regexMatcher{EmptyRegexp}
 }
 

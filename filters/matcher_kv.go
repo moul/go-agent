@@ -104,9 +104,9 @@ func (m *keyValueMatcher) doMatch(x interface{}, ignoreKeyRegexp bool) bool {
 	case reflect.Map:
 		return m.matchesMap(x)
 	case reflect.Slice:
-		return m.matchesSlice(x, false)
+		return m.matchesSlice(x, ignoreKeyRegexp)
 	case reflect.Array:
-		return m.matchesSlice(x, false)
+		return m.matchesSlice(x, ignoreKeyRegexp)
 	}
 
 	// Other types cannot match.
@@ -136,7 +136,12 @@ func (m *keyValueMatcher) matchesSlice(x interface{}, ignoreKeyRegexp bool) bool
 	}
 	for i := 0; i < value.Len(); i++ {
 		v := value.Index(i).Interface()
+		// First, attempt a normal match.
 		if m.doMatch(v, ignoreKeyRegexp) {
+			return true
+		}
+		// If it fails, attempt to match as an element.
+		if m.matchElement(v) {
 			return true
 		}
 	}
@@ -155,6 +160,23 @@ func (m *keyValueMatcher) matchesArray(x interface{}) bool {
 
 	for i := 0; i < value.Len(); i++ {
 		if m.doMatch(value.Index(i).Interface(), false) {
+			return true
+		}
+	}
+	return false
+}
+
+// Match a slice or map element: handle stringables specifically.
+func (m *keyValueMatcher) matchElement(x interface{}) bool {
+	switch x.(type) {
+	case string, fmt.Stringer, error:
+		s := stringify(x)
+		// For these three types, s will always be a string.
+		if m.matchesString(s.(string), true) {
+			return true
+		}
+	default:
+		if m.doMatch(x, true) {
 			return true
 		}
 	}
@@ -204,26 +226,31 @@ func (m *keyValueMatcher) matchesMap(x interface{}) bool {
 		}
 
 		i := mapIter.Value().Interface()
-		// If the value is a stringable, match it, else match the value normally.
-		switch i.(type) {
-		case string, fmt.Stringer, error:
-			s := stringify(i)
-			// For these three types, s will always be a string.
-			if m.matchesString(s.(string), true) {
-				return true
-			}
-		default:
-			if m.doMatch(i, false) {
-				return true
-			}
+		if m.matchElement(i) {
+			return true
 		}
 	}
 	return false
 }
 
-// NewKeyValueMatcher creates a valid default KeyValueMatcher accepting any value.
-func NewKeyValueMatcher() KeyValueMatcher {
+// NewKeyValueMatcher creates a KeyValueMatcher accepting values matching the
+// regular expressions built from the passed strings.
+// Passing an empty string for either expression builds a nil regex accepting
+// anything.
+// Passing an invalid regex string will return a unusable nil matcher.
+func NewKeyValueMatcher(key, value string) KeyValueMatcher {
+	keyRegexp, err := regexp.Compile(key)
+	if err != nil {
+		return nil
+	}
+	valueRegexp, err := regexp.Compile(value)
+	if err != nil {
+		return nil
+	}
+
 	return &keyValueMatcher{
-		seen: pMap{},
+		seen:        pMap{},
+		keyRegexp:   keyRegexp,
+		valueRegexp: valueRegexp,
 	}
 }

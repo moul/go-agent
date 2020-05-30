@@ -19,8 +19,8 @@ func TestPathFilter_MatchesCall(t *testing.T) {
 		path    string
 		want    bool
 	}{
-		{"empty", NewEmptyRegexMatcher(), ``, true},
-		{"empty vs non-empty", NewEmptyRegexMatcher(), path, true},
+		{"empty", NewEmptyRegexpMatcher(), ``, true},
+		{"empty vs non-empty", NewEmptyRegexpMatcher(), path, true},
 		{"non-empty vs empty", NewRegexpMatcher(pathRE), ``, false},
 		{"happy", NewRegexpMatcher(pathRE), path, true},
 		{"sad good regexp", NewRegexpMatcher(`^/bar$`), path, false},
@@ -46,7 +46,7 @@ func TestPathFilter_SetMatcher(t *testing.T) {
 		matcher Matcher
 		wantErr bool
 	}{
-		{"happy", NewEmptyRegexMatcher(), false},
+		{"happy", NewEmptyRegexpMatcher(), false},
 		{"nil", nil, false},
 		{"sad matcher", &yesMatcher{}, true},
 	}
@@ -66,7 +66,7 @@ func TestPathFilter_ensureMatcher(t *testing.T) {
 		matcher RegexpMatcher
 	}{
 		{"not set", nil},
-		{"set", NewEmptyRegexMatcher()},
+		{"set", NewEmptyRegexpMatcher()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

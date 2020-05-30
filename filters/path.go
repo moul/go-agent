@@ -19,7 +19,7 @@ func (f *PathFilter) ensureMatcher() {
 	if f.RegexpMatcher != nil {
 		return
 	}
-	if err := f.SetMatcher(NewEmptyRegexMatcher()); err != nil {
+	if err := f.SetMatcher(NewEmptyRegexpMatcher()); err != nil {
 		// Should not happen, by code structure.
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func (f *PathFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
 // To apply a case-insensitive match, prepend (?i) to the regex, as in: (?i)\.bearer\.sh$
 func (f *PathFilter) SetMatcher(matcher Matcher) error {
 	if matcher == nil {
-		matcher = NewEmptyRegexMatcher()
+		matcher = NewEmptyRegexpMatcher()
 	}
 	rm, ok := matcher.(RegexpMatcher)
 	if !ok {

@@ -52,7 +52,7 @@ func TestHTTPMethodFilter_SetMatcher(t *testing.T) {
 			f := &HTTPMethodFilter{}
 			var matcher Matcher
 			if tt.name == "bad matcher" {
-				matcher = NewEmptyRegexMatcher()
+				matcher = NewEmptyRegexpMatcher()
 			} else {
 				matcher = NewStringMatcher(tt.method, true)
 			}

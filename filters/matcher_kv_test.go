@@ -1,6 +1,7 @@
 package filters
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -12,6 +13,7 @@ const AlreadyChecked = "already checked"
 
 var foo = "foo"
 var bar = "bar"
+const badRe = `[`
 var reFoo = regexp.MustCompile(foo)
 var reBar = regexp.MustCompile(bar)
 var noneSeen = func() pMap { return pMap{} }
@@ -117,9 +119,9 @@ func Test_keyValueMatcher_matchesMap(t *testing.T) {
 		want   bool
 	}{
 		{"happy string key", &fields{reFoo, reBar}, map[string]string{foo: bar}, true},
-		//{"happy stringer key", &fields{reFoo, reBar}, map[fmt.Stringer]string{kvStringer(foo): bar}, true},
-		//{"happy error key", &fields{reFoo, reBar}, map[error]string{errors.New(foo): bar}, true},
-		//{"happy no key", &fields{nil, reBar}, map[int]fmt.Stringer{42: kvStringer(bar)}, true},
+		{"happy stringer key", &fields{reFoo, reBar}, map[fmt.Stringer]string{kvStringer(foo): bar}, true},
+		{"happy error key", &fields{reFoo, reBar}, map[error]string{errors.New(foo): bar}, true},
+		{"happy no key", &fields{nil, reBar}, map[int]fmt.Stringer{42: kvStringer(bar)}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -228,16 +230,25 @@ func Test_keyValueMatcher_track(t *testing.T) {
 }
 
 func TestNewKeyValueMatcher(t *testing.T) {
-	m := NewKeyValueMatcher()
-	if m == nil {
-		t.Fatalf("matcher constructor may not return nil")
+	tests := []struct {
+		name    string
+		key     string
+		value   string
+		wantNil bool
+	}{
+		{"happy", foo, bar, false},
+		{"sad key", badRe, bar, true},
+		{"sad value", foo, badRe, true},
+		{"sad both", badRe, badRe, true},
+		{"empty key", ``, bar, false},
+		{"empty value", foo, ``, false},
 	}
-	kvm, ok := m.(*keyValueMatcher)
-	if !ok {
-		t.Fatalf("matcher type expected to be %T, got %T", &keyValueMatcher{}, kvm)
-	}
-	if kvm.seen == nil {
-		t.Errorf("matcher seen map is nil")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewKeyValueMatcher(tt.key, tt.value); (got == nil) != tt.wantNil {
+				t.Errorf("NewKeyValueMatcher() = %v, want %v", got, tt.wantNil)
+			}
+		})
 	}
 }
 
