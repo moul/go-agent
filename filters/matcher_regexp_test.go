@@ -23,14 +23,14 @@ func TestRegexMatcher_Matches(t *testing.T) {
 		check    interface{}
 		expected bool
 	}{
-		{NewEmptyRegexMatcher(), "", true},
+		{NewEmptyRegexMatcher(), ``, true},
 		{NewEmptyRegexMatcher(), BearerDomain, true},
-		{&BearerMatcher, "", false},
+		{&BearerMatcher, ``, false},
 		{&BearerMatcher, BearerDomain, true},
 		{&BearerMatcher, errors.New(BearerDomain), true},
 		{&BearerMatcher, testString(BearerDomain), true},
 		{&BearerMatcher, 42, false},
-		{&regexMatcher{}, "", true},
+		{&regexMatcher{}, ``, true},
 	}
 
 	for _, tt := range tests {
@@ -45,7 +45,7 @@ func TestRegexMatcher_Matches(t *testing.T) {
 }
 
 func TestRegexMatcher_Regexp(t *testing.T) {
-	matcher := NewRegexMatcher(BearerRE)
+	matcher := NewRegexpMatcher(BearerRE)
 	rm, ok := matcher.(*regexMatcher)
 	if !ok {
 		t.Fatalf("expected %T matcher, got %T", NewEmptyRegexMatcher(), matcher)

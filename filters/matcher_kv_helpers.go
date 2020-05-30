@@ -15,7 +15,7 @@ func (s kvStringer) String() string {
 }
 
 // stringerType is a reflect Interface type for fmt.Stringer.
-var zeroKVStringer fmt.Stringer = kvStringer("")
+var zeroKVStringer fmt.Stringer = kvStringer(``)
 var stringerType = reflect.TypeOf(&zeroKVStringer).Elem()
 
 // errorType is a reflect Interface type for error.

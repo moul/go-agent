@@ -27,7 +27,7 @@ type regexMatcher struct {
 
 func (m *regexMatcher) String() string {
 	if m.Pattern == nil {
-		return ""
+		return ``
 	}
 	return m.Pattern.String()
 }
@@ -53,10 +53,10 @@ func (m *regexMatcher) Regexp() *regexp.Regexp {
 	return m.Pattern
 }
 
-// NewRegexMatcher creates a RangeMatcher.
+// NewRegexpMatcher creates a RangeMatcher.
 //   - If the regex is invalid, the matcher will be nil.
 //   - Otherwise it will be a usable matcher.
-func NewRegexMatcher(s string) RegexpMatcher {
+func NewRegexpMatcher(s string) RegexpMatcher {
 	re, err := regexp.Compile(s)
 	if err != nil {
 		return nil

@@ -18,13 +18,13 @@ func TestDomainFilter_MatchesCall(t *testing.T) {
 		domain  string
 		want    bool
 	}{
-		{"empty", NewEmptyRegexMatcher(), "", true},
+		{"empty", NewEmptyRegexMatcher(), ``, true},
 		{"empty vs non-empty", NewEmptyRegexMatcher(), BearerDomain, true},
-		{"non-empty vs empty", NewRegexMatcher(BearerRE), "", false},
-		{"happy", NewRegexMatcher(BearerRE), BearerDomain, true},
-		{"sad good regexp", NewRegexMatcher(`^bearer.com$`), BearerDomain, false},
+		{"non-empty vs empty", NewRegexpMatcher(BearerRE), ``, false},
+		{"happy", NewRegexpMatcher(BearerRE), BearerDomain, true},
+		{"sad good regexp", NewRegexpMatcher(`^bearer.com$`), BearerDomain, false},
 		// Bad regexps are replaced by a pass-all empty regexp.
-		{"sad bad regexp", NewRegexMatcher(`[`), BearerDomain, true},
+		{"sad bad regexp", NewRegexpMatcher(badRe), BearerDomain, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

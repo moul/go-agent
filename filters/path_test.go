@@ -12,19 +12,20 @@ const (
 )
 
 func TestPathFilter_MatchesCall(t *testing.T) {
+	const badRe = `[`
 	tests := []struct {
 		name    string
 		matcher RegexpMatcher
 		path    string
 		want    bool
 	}{
-		{"empty", NewEmptyRegexMatcher(), "", true},
+		{"empty", NewEmptyRegexMatcher(), ``, true},
 		{"empty vs non-empty", NewEmptyRegexMatcher(), path, true},
-		{"non-empty vs empty", NewRegexMatcher(pathRE), "", false},
-		{"happy", NewRegexMatcher(pathRE), path, true},
-		{"sad good regexp", NewRegexMatcher(`^/bar$`), path, false},
+		{"non-empty vs empty", NewRegexpMatcher(pathRE), ``, false},
+		{"happy", NewRegexpMatcher(pathRE), path, true},
+		{"sad good regexp", NewRegexpMatcher(`^/bar$`), path, false},
 		// Bad regexps are replaced by a pass-all empty regexp.
-		{"sad bad regexp", NewRegexMatcher(`[`), path, true},
+		{"sad bad regexp", NewRegexpMatcher(badRe), path, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
