@@ -19,10 +19,7 @@ func (f *PathFilter) ensureMatcher() {
 	if f.RegexpMatcher != nil {
 		return
 	}
-	if err := f.SetMatcher(NewEmptyRegexpMatcher()); err != nil {
-		// Should not happen, by code structure.
-		panic(err)
-	}
+	_ = f.SetMatcher(NewEmptyRegexpMatcher())
 }
 
 // MatchesCall is part of the Filter interface.

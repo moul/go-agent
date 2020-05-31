@@ -7,7 +7,7 @@ import (
 
 // NotFilter provides a filter inverting the underlying filter.
 type NotFilter struct {
-	Filter
+	*filterSet
 }
 
 // Type is part of the Filter interface.
@@ -15,37 +15,52 @@ func (*NotFilter) Type() FilterType {
 	return notFilter
 }
 
-// ensureMatcher makes sure the instance filter is set, and returns true if it
-// had to set a new one itself.
 func (f *NotFilter) ensureFilter() {
-	if f.Filter != nil {
-		return
+	if isNilInterface(f.filterSet) {
+		f.filterSet = &filterSet{}
 	}
-	f.Filter = &YesFilter{}
+	f.filterSet.operator = NotFirst
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *NotFilter) MatchesCall(r *http.Request, s *http.Response) bool {
+func (f *NotFilter) MatchesCall(request *http.Request, response *http.Response) bool {
 	f.ensureFilter()
-	return !f.Filter.MatchesCall(r, s)
+	return f.filterSet.MatchesCall(request, response)
 }
 
 // SetFilter sets the filter to invert.
 //
 // Passing a nil filter treats it as a Yes filter, returning a No filter.
 func (f *NotFilter) SetFilter(filter Filter) error {
-	if filter != nil {
-		filter = &YesFilter{}
+	f.ensureFilter()
+	if !isNilInterface(filter) {
+		f.filterSet.AddChildren(filter)
 	}
-	f.Filter = filter
 	return nil
 }
 
 // SetMatcher only accepts a nil Matcher, because it applies the matcher found
 // in its underlying Filter.
 func (f *NotFilter) SetMatcher(matcher Matcher) error {
-	if matcher != nil {
+	if !isNilInterface(matcher) {
 		return fmt.Errorf("instances of NotFilter only accept a nil Matcher, got %T", matcher)
 	}
 	return nil
+}
+
+// AddChildren overrides the embedded filterSet method to have one child at most.
+func (f *NotFilter) AddChildren(filters ...Filter) FilterSet {
+	f.ensureFilter()
+	// Don't add one if the Not filters already has one.
+	if len(f.children) > 0 {
+		return f
+	}
+	for _, filter := range filters {
+		// Only insert the first non-nil filter.
+		if !isNilInterface(filter) {
+			f.children = append(f.children, filters[0])
+			break
+		}
+	}
+	return f
 }

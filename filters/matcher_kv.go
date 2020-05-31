@@ -140,24 +140,6 @@ func (m *keyValueMatcher) matchesSlice(x interface{}, ignoreKeyRegexp bool) bool
 	return false
 }
 
-// matchesArray matches against each element in an array. The parameter must be
-// an array.
-func (m *keyValueMatcher) matchesArray(x interface{}) bool {
-	value := reflect.ValueOf(x)
-	if value.Len() == 0 || !isElementMatchableKind(value) {
-		return false
-	}
-
-	/* Note: arrays are not tracked as they are normally copied, not referenced. */
-
-	for i := 0; i < value.Len(); i++ {
-		if m.doMatch(value.Index(i).Interface(), false) {
-			return true
-		}
-	}
-	return false
-}
-
 // Match a slice or map element: handle stringables specifically.
 func (m *keyValueMatcher) matchElement(x interface{}) bool {
 	switch x.(type) {
@@ -218,7 +200,6 @@ func (m *keyValueMatcher) matchesMap(x interface{}) bool {
 			}
 		}
 
-		// XXX Should it reject nil items instead, although there is no regex ?
 		if m.valueRegexp == nil {
 			return true
 		}

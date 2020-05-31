@@ -84,12 +84,12 @@ var (
 	pathFilter           FilterType = filterType{"PathFilter", true, false}
 	requestHeadersFilter FilterType = filterType{"RequestHeadersFilter", true, false}
 
-	responseHeadersFilter FilterType = filterType{"ResponseHadersFilter", false, true}
+	responseHeadersFilter FilterType = filterType{"ResponseHeadersFilter", false, true}
 	statusCodeFilter      FilterType = filterType{"StatusCodeFilter", false, true}
 
-	requestBodiesFilter  FilterType = filterType{"RequestBodiesFilter", true, false}
-	responseBodiesFilter FilterType = filterType{"ResponseBodiesFilter", false, true}
+	//requestBodiesFilter  FilterType = filterType{"RequestBodiesFilter", true, false}
+	//responseBodiesFilter FilterType = filterType{"ResponseBodiesFilter", false, true}
 
-	connectionErrorFilter FilterType = filterType{"ConnectionErrorFilter", false, false}
+	//connectionErrorFilter FilterType = filterType{"ConnectionErrorFilter", false, false}
 	yesInternalFilter     FilterType = filterType{"YesFilter", false, false}
 )

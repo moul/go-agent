@@ -6,7 +6,7 @@ import (
 )
 
 // YesFilter provides a filter accepting any input, even nil.
-type YesFilter struct {}
+type YesFilter struct{}
 
 // Type is part of the Filter interface.
 func (*YesFilter) Type() FilterType {
@@ -14,7 +14,7 @@ func (*YesFilter) Type() FilterType {
 }
 
 // MatchesCall is part of the Filter interface.
-func (nf *YesFilter) MatchesCall(_ *http.Request, _ *http.Response) bool {
+func (*YesFilter) MatchesCall(_ *http.Request, _ *http.Response) bool {
 	return true
 }
 
@@ -26,3 +26,9 @@ func (*YesFilter) SetMatcher(matcher Matcher) error {
 	}
 	return nil
 }
+
+// AddChildren is part of the FilterSet interface.
+func (f *YesFilter) AddChildren(...Filter) FilterSet { return f }
+
+// Children is part of the FilterSet interface.
+func (*YesFilter) Children() []Filter { return nil }

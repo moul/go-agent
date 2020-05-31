@@ -40,22 +40,41 @@ func TestYesFilter_SetMatcher(t *testing.T) {
 		matcher Matcher
 		wantErr bool
 	}{
-		{ "nil", nil, false },
-		{ "non nil", &yesMatcher{}, true},
+		{"nil", nil, false},
+		{"non nil", &yesMatcher{}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ye := &YesFilter{}
-			if err := ye.SetMatcher(tt.matcher); (err != nil) != tt.wantErr {
+			f := &YesFilter{}
+			if err := f.SetMatcher(tt.matcher); (err != nil) != tt.wantErr {
 				t.Errorf("SetMatcher() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
+func TestYesFilter_AddChildren(t *testing.T) {
+	tests := []struct {
+		name    string
+		filters []Filter
+	}{
+		{"happy", []Filter{&YesFilter{}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &YesFilter{}
+			if got := f.AddChildren(tt.filters...); got != f || len(f.Children()) != 0 {
+				t.Errorf("AddChildren() = %v, children %d", got, len(f.Children()))
+			}
+		})
+	}
+}
+
 func TestYesFilter_Type(t *testing.T) {
-	actual := (&YesFilter{}).Type()
-	if actual != yesInternalFilter {
-		t.Errorf("Type() = %v, want %v", actual, yesInternalFilter)
+	expected := yesInternalFilter
+	var f YesFilter
+	actual := f.Type()
+	if actual != expected {
+		t.Errorf("Type() = %v, want %v", actual, expected)
 	}
 }

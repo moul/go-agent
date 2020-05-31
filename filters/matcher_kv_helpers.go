@@ -26,13 +26,10 @@ func isMatchableKind(typ reflect.Type) bool {
 	var errorType = reflect.TypeOf((*error)(nil)).Elem()
 
 	kind := typ.Kind()
-	if kind == reflect.Interface && (typ.Implements(errorType) || typ.Implements(stringerType)) {
-		return true
-	}
-	// Non-matchable runtime comparable kinds like int can be matchable if they
+	// Non-matchable kinds like a plain "int" can be matchable if they
 	// belong to defined types implementing a matchable interface like error or
 	// fmt.Stringer.
-	if typ.Comparable() {
+	if (typ.Implements(errorType) || typ.Implements(stringerType)) {
 		return true
 	}
 

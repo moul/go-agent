@@ -79,9 +79,10 @@ func TestDomainFilter_ensureMatcher(t *testing.T) {
 }
 
 func TestDomainFilter_Type(t *testing.T) {
+	expected := domainFilter
 	var f DomainFilter
 	actual := f.Type()
-	if actual != domainFilter {
-		t.Errorf("Type() = %v, want %v", actual, domainFilter)
+	if actual != expected {
+		t.Errorf("Type() = %v, want %v", actual, expected)
 	}
 }

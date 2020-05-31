@@ -3,6 +3,7 @@ package filters
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"regexp"
 	"testing"
@@ -13,7 +14,9 @@ const AlreadyChecked = "already checked"
 
 var foo = "foo"
 var bar = "bar"
+
 const badRe = `[`
+
 var reFoo = regexp.MustCompile(foo)
 var reBar = regexp.MustCompile(bar)
 var noneSeen = func() pMap { return pMap{} }
@@ -209,7 +212,7 @@ func Test_keyValueMatcher_matchesArray(t *testing.T) {
 				keyRegexp:   tt.fields.keyRegexp,
 				valueRegexp: tt.fields.valueRegexp,
 			}
-			if got := m.matchesArray(tt.value); got != tt.want {
+			if got := m.matchesSlice(tt.value, false); got != tt.want {
 				t.Errorf("Matches(array) = %v, want %v", got, tt.want)
 			}
 		})
@@ -290,6 +293,28 @@ func Test_pMap_String(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.pm.String(); got != tt.want {
 				t.Errorf("String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_isMatchableKind(t *testing.T) {
+	tests := []struct {
+		name string
+		x    interface{}
+		want bool
+	}{
+		{"happy string", foo, true},
+		{"happy slice", []byte(nil), true},
+		{"happy array", [...]int{}, true},
+		{"happy map", http.Header(nil), true},
+		{"happy Stringer int", Any, true},
+		{"sad runtime int", 42, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isMatchableKind(reflect.TypeOf(tt.x)); got != tt.want {
+				t.Errorf("isMatchableKind() = %v, want %v", got, tt.want)
 			}
 		})
 	}

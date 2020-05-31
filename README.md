@@ -19,7 +19,8 @@ These instructions will get you a copy of the project up and running on your loc
 
 - Go 1.14.3 or later
 - Go modules enabled
-
+- To work on the agent and modify the FilterSet type:
+  - Go [`stringer`](https://pkg.go.dev/golang.org/x/tools/cmd?tab=overview) command 
 
 ### @TODO : Installing
 

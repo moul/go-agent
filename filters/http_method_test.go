@@ -64,9 +64,10 @@ func TestHTTPMethodFilter_SetMatcher(t *testing.T) {
 }
 
 func TestHTTPMethodFilter_Type(t *testing.T) {
+	expected := httpMethodFilter
 	var f HTTPMethodFilter
 	actual := f.Type()
-	if actual != httpMethodFilter {
-		t.Errorf("Type() = %v, want %v", actual, httpMethodFilter)
+	if actual != expected {
+		t.Errorf("Type() = %v, want %v", actual, expected)
 	}
 }

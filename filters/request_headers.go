@@ -20,10 +20,7 @@ func (f *RequestHeadersFilter) ensureMatcher() {
 	if !isNilInterface(f.KeyValueMatcher) {
 		return
 	}
-	if err := f.SetMatcher(NewKeyValueMatcher(``, ``)); err != nil {
-		// Should not happen, by code structure.
-		panic(err)
-	}
+	_ = f.SetMatcher(NewKeyValueMatcher(``, ``))
 }
 
 // MatchesCall is part of the Filter interface.

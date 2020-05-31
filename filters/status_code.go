@@ -19,10 +19,7 @@ func (f *StatusCodeFilter) ensureMatcher() {
 	if f.RangeMatcher != nil {
 		return
 	}
-	if err := f.SetMatcher(NewHTTPStatusMatcher()); err != nil {
-		// Should not happen, by code structure.
-		panic(err)
-	}
+	_ = f.SetMatcher(NewHTTPStatusMatcher())
 }
 
 // MatchesCall is part of the Filter interface.

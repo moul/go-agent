@@ -54,28 +54,3 @@ func Test_stringMatcher_Matches(t *testing.T) {
 		})
 	}
 }
-
-func Test_stringMatcher_String(t *testing.T) {
-	type fields struct {
-		s          string
-		ignoreCase bool
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &stringMatcher{
-				s:          tt.fields.s,
-				ignoreCase: tt.fields.ignoreCase,
-			}
-			if got := m.String(); got != tt.want {
-				t.Errorf("String() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}

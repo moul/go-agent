@@ -11,7 +11,6 @@ pipeline {
     stages {
         stage('downloads') {
 	    steps {
-	    	sh "ls -al /go"
         	sh 'go version'
 
         	sh 'go get golang.org/x/lint/golint'
@@ -28,9 +27,8 @@ pipeline {
 	    	// sh 'cloc --by-file --xml --out sloccount.xml .'
 	    	// sloccountPublish encoding: 'UTF-8', pattern: '**/sloccount.xml'
 
-	    	sh 'echo > golint.xml && golint -min_confidence 0.3 ./... >> golint.xml'
-	    	sh './bin/golangci-lint run --out-format checkstyle ./... > golangci.xml'
-	    	sh 'ls -al'
+	    	sh 'echo > golint.xml && golint -min_confidence 0.3 ./... | tee -a golint.xml'
+	    	sh './bin/golangci-lint run --out-format checkstyle ./... | tee golangci.xml'
 	    	recordIssues(
 	    	    enabledForFailure: true,
 	    	    aggregatingResults: true,

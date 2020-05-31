@@ -61,10 +61,10 @@ func TestRequestHeadersFilter_SetMatcher(t *testing.T) {
 }
 
 func TestRequestHeadersFilter_Type(t *testing.T) {
+	expected := requestHeadersFilter
 	var f RequestHeadersFilter
 	actual := f.Type()
-	if actual != requestHeadersFilter {
-		t.Errorf("Type() = %v, want %v", actual, requestHeadersFilter)
+	if actual != expected {
+		t.Errorf("Type() = %v, want %v", actual, expected)
 	}
 }
-
