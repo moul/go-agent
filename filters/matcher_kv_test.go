@@ -33,7 +33,6 @@ func Test_keyValueMatcher_matchesString(t *testing.T) {
 		{"happy", fields{nil, reBar}, bar, true},
 		{"key regex", fields{reFoo, nil}, bar, false},
 		{"different string", fields{nil, reBar}, foo, false},
-		{AlreadyChecked, fields{nil, nil}, bar, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -41,9 +40,6 @@ func Test_keyValueMatcher_matchesString(t *testing.T) {
 				seen:        noneSeen(),
 				keyRegexp:   tt.fields.keyRegexp,
 				valueRegexp: tt.fields.valueRegexp,
-			}
-			if tt.name == AlreadyChecked {
-				m.seen.track(tt.s)
 			}
 			if got := m.matchesString(tt.s, false); got != tt.want {
 				t.Errorf("matchesString() = %v, want %v", got, tt.want)

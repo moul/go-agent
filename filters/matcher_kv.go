@@ -93,7 +93,7 @@ func (m *keyValueMatcher) doMatch(x interface{}, ignoreKeyRegexp bool) bool {
 		x = stringify(x)
 		v = reflect.ValueOf(x)
 	}
-	if isNil(v) {
+	if isNilValue(v) {
 		return false
 	}
 
@@ -114,10 +114,6 @@ func (m *keyValueMatcher) doMatch(x interface{}, ignoreKeyRegexp bool) bool {
 }
 
 func (m *keyValueMatcher) matchesString(s string, ignoreKeyRegexp bool) bool {
-	if m.seen.track(s) {
-		return false
-	}
-
 	if m.keyRegexp != nil && !ignoreKeyRegexp {
 		return false
 	}
@@ -138,10 +134,6 @@ func (m *keyValueMatcher) matchesSlice(x interface{}, ignoreKeyRegexp bool) bool
 		v := value.Index(i).Interface()
 		// First, attempt a normal match.
 		if m.doMatch(v, ignoreKeyRegexp) {
-			return true
-		}
-		// If it fails, attempt to match as an element.
-		if m.matchElement(v) {
 			return true
 		}
 	}
@@ -188,7 +180,13 @@ func (m *keyValueMatcher) matchElement(x interface{}) bool {
 func (m *keyValueMatcher) matchesMap(x interface{}) bool {
 	value := reflect.ValueOf(x)
 
-	if isNil(value) || value.Len() == 0 || !isElementMatchableKind(value) {
+	if isNilValue(value) {
+		return false
+	}
+	if m.keyRegexp == nil && m.valueRegexp == nil {
+		return true
+	}
+	if value.Len() == 0 || !isElementMatchableKind(value) {
 		return false
 	}
 
@@ -239,13 +237,25 @@ func (m *keyValueMatcher) matchesMap(x interface{}) bool {
 // anything.
 // Passing an invalid regex string will return a unusable nil matcher.
 func NewKeyValueMatcher(key, value string) KeyValueMatcher {
-	keyRegexp, err := regexp.Compile(key)
-	if err != nil {
-		return nil
+	var keyRegexp, valueRegexp *regexp.Regexp
+	var err error
+
+	if key == `` {
+		keyRegexp = nil
+	} else {
+		keyRegexp, err = regexp.Compile(key)
+		if err != nil {
+			return nil
+		}
 	}
-	valueRegexp, err := regexp.Compile(value)
-	if err != nil {
-		return nil
+
+	if value == `` {
+		valueRegexp = nil
+	} else {
+		valueRegexp, err = regexp.Compile(value)
+		if err != nil {
+			return nil
+		}
 	}
 
 	return &keyValueMatcher{

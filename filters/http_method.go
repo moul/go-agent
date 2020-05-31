@@ -12,7 +12,7 @@ const RFC7230_3_2_6Token = "^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$"
 
 // HTTPMethodFilter provides a filter for the HTTP method in API calls.
 type HTTPMethodFilter struct {
-	Matcher
+	StringMatcher
 }
 
 // Type is part of the Filter interface.
@@ -22,7 +22,7 @@ func (*HTTPMethodFilter) Type() FilterType {
 
 // MatchesCall is part of the Filter interface.
 func (f *HTTPMethodFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
-	return f.Matcher.Matches(r.Method)
+	return f.StringMatcher.Matches(r.Method)
 }
 
 // SetMatcher sets the filter StringMatcher.
@@ -35,29 +35,27 @@ func (f *HTTPMethodFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
 //
 // Note that in most cases, the CONNECT method will not behave like any other.
 // See http.Transport for details.
-func (f *HTTPMethodFilter) SetMatcher(m Matcher) error {
-	getMatcher := NewStringMatcher(http.MethodGet, true)
-	defer func() {
-		f.Matcher = m
-	}()
+func (f *HTTPMethodFilter) SetMatcher(matcher Matcher) error {
+	defaultMatcher := NewStringMatcher(http.MethodGet, true)
 
-	sm, ok := m.(StringMatcher)
+	m, ok := matcher.(StringMatcher)
 	if !ok {
-		// StringMatcher guarantees the method is a valid UTF-8 string.
-		m = getMatcher
-		return fmt.Errorf("regexp matcher expected, got a %T", m)
+		f.StringMatcher = defaultMatcher
+		return fmt.Errorf("regexp matcher expected, got a %T", matcher)
 	}
 
-	method := sm.String()
+	// StringMatcher guarantees the method is a valid UTF-8 string.
+	method := m.String()
 	if method == `` {
 		method = http.MethodGet
 	}
 
 	re := regexp.MustCompile(RFC7230_3_2_6Token)
 	if !re.MatchString(method) {
-		m = getMatcher
+		f.StringMatcher = defaultMatcher
 		return fmt.Errorf("matcher string does not match RFC 7230 token production")
 	}
 
+	f.StringMatcher = m
 	return nil
 }

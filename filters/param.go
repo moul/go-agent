@@ -2,6 +2,7 @@ package filters
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -26,14 +27,24 @@ func (f *ParamFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
 
 // SetMatcher sets the filter KeyValueMatcher.
 //
-// If the returned error is not nil, the filter cannot be used.
+// If the returned error is not nil, the filter Regex will accept any value.
 //
 // To apply a case-insensitive match, prepend (?i) to the matcher regexps,
 // as in: (?i)\.bearer\.sh$
-func (f *ParamFilter) SetMatcher(m KeyValueMatcher) error {
-	f.KeyValueMatcher = m
-	if m == nil {
+func (f *ParamFilter) SetMatcher(matcher Matcher) error {
+	defaultMatcher := NewKeyValueMatcher(``, ``)
+
+	m, ok := matcher.(KeyValueMatcher)
+	if !ok {
+		f.KeyValueMatcher = defaultMatcher
+		return fmt.Errorf("key-value matcher expected, got a %T", matcher)
+	}
+
+	if isNilInterface(m) {
+		f.KeyValueMatcher = defaultMatcher
 		return errors.New("set nil Key-Value matcher on Param filter")
 	}
+
+	f.KeyValueMatcher = m
 	return nil
 }

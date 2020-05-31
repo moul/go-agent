@@ -23,9 +23,10 @@ func TestParamFilter_MatchesCall(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := &ParamFilter{
-				KeyValueMatcher: NewKeyValueMatcher(foo, bar),
-			}
+			f := &ParamFilter{}
+			// This is not a test for SetMatcher.
+			_ = f.SetMatcher(NewKeyValueMatcher(foo, bar))
+
 			if got := f.MatchesCall(tt.req, nil); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
@@ -39,8 +40,9 @@ func TestParamFilter_SetMatcher(t *testing.T) {
 		KeyValueMatcher
 		wantErr bool
 	}{
-		{ "happy", NewKeyValueMatcher(``, ``), false},
-		{ "sad", NewKeyValueMatcher(badRe, ``), true},
+		{"happy", NewKeyValueMatcher(``, ``), false},
+		{"sad", NewKeyValueMatcher(badRe, ``), true},
+		{"sad nil", (*keyValueMatcher)(nil), true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
