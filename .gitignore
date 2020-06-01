@@ -27,6 +27,8 @@ _testmain.go
 
 # Generated content
 coverage.xml
+go*.xml
+sloccount.xml
 
 # IDEA
 /.idea
