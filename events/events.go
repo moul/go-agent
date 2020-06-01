@@ -1,3 +1,7 @@
+// Package events contains an event dispatcher loosely inspired by the PSR-14
+// specification, published under the MIT license by the PHP-FIG.
+//
+// See https://www.php-fig.org/psr/psr-14/ for details and background.
 package events
 
 import (

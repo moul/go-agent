@@ -55,6 +55,42 @@ as in the following example:
 	// Step 3: use your client as usual.
 	fooClient := http.Client{ Transport: fooTransport }
 	foo, _ := fooClient.Do(&http.Request{URL: someURL)
-	defer bar.Body.Close()
-	fooBody := ioutil.Readall(bar.Body)
+	defer foo.Body.Close()
+	fooBody := ioutil.ReadAll(foo.Body)
 ``` 
+
+
+## Advanced use
+
+For advanced use cases, you can create multiple agents, and each of them will
+maintain an isolated Bearer profile. Following the example of the Go runtime library,
+the `Init` and `Decorate` functions are actually just helpers using a default
+agent provided by the package, covering the 99% use cases where the application
+only uses a single Bearer agent.
+
+```go
+	// Step 1: initialize the Bearer agents.
+	agent1 := agent.NewAgent()
+    agent2 := agent.NewAgent()
+    
+    defer agent1.Init(secretKey1)() 
+    defer agent2.Init(secretKey2)()
+
+	// Step 2: prepare your custom transport, decorating it with the Bearer agent.
+	var fooTransport http.RoundTripper = agent1.Decorate(NewFooTransport())
+	var barTransport http.RoundTripper = agent2.Decorate(NewBarTransport())
+
+	// Step 3: use your client as usual.
+	fooClient := http.Client{ Transport: fooTransport }
+    barClient := http.Client{ Transport: barTransport }
+        
+	foo, _ := fooClient.Do(&http.Request{URL: someURL)
+	bar, _ := barClient.Do(&http.Request{URL: someOtherURL)
+	defer foo.Body.Close()
+    defer bar.Body.Close()
+	fooBody := ioutil.ReadAll(foo.Body)
+    barBody := ioutil.ReadAll(bar.Body))
+``` 
+ 
+                                     
+
