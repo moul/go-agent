@@ -14,7 +14,7 @@ It is also open for use by client applications for other purposes.
 
 The event system provides :
 
-- subscription to a topic by listener provides
+- subscription to a topic by listener providers
 - dispatching any kind of data to subscribers, with synchronous flow and defined
   order, accumulating event changes by all subscribers
 - ability for synchronous subscribers to terminate dispatching

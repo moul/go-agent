@@ -22,8 +22,8 @@ func TestNewDispatcher(t *testing.T) {
 // test can not verify.
 func Test_dispatcher_SetProvider_wb(t *testing.T) {
 	d := dispatcher{}
-	d.SetProvider("topic", nil)
+	d.AddProviders("topic", nil)
 	if d.providers == nil || len(d.providers) == 0 {
-		t.Fatal("empty providers list in spite of SetProvider")
+		t.Fatal("empty providers list in spite of AddProviders")
 	}
 }

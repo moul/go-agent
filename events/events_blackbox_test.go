@@ -127,7 +127,7 @@ func Test_dispatcher_SetProvider_bb(t *testing.T) {
 	bg := context.Background()
 	d := events.NewDispatcher()
 
-	d.SetProvider(t1, p1).SetProvider(t2, p2)
+	d.AddProviders(t1, p1).AddProviders(t2, p2)
 	tests := []struct {
 		name string
 		p    events.ListenerProvider
@@ -190,7 +190,7 @@ func Test_dispatcher_DispatchCanceledContext(t *testing.T) {
 		}
 	})
 
-	d := events.NewDispatcher().SetProvider(topic, lp)
+	d := events.NewDispatcher().AddProviders(topic, lp)
 	e := events.NewEvent(topic).SetData(data)
 	e, err := d.Dispatch(ctx, e)
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -216,13 +216,13 @@ func Test_dispatcher_DispatchCanceledContext(t *testing.T) {
 
 func Test_dispatcher_DispatchStop(t *testing.T) {
 	const topic = "topic"
-	var lp events.ListenerProviderFunc
+	var provider events.ListenerProviderFunc
 
 	d := events.NewDispatcher()
 	e := events.NewEvent(topic)
 
 	ctx := context.Background()
-	lp = func(events.Event) []events.Listener {
+	provider = func(events.Event) []events.Listener {
 		return []events.Listener{
 			func(context.Context, events.Event) error {
 				return events.DispatchStopRequest
@@ -230,14 +230,14 @@ func Test_dispatcher_DispatchStop(t *testing.T) {
 		}
 	}
 
-	d.SetProvider(topic, lp)
+	d.AddProviders(topic, provider)
 	_, err := d.Dispatch(ctx, e)
 	if err != nil {
 		t.Fatalf("returned a non-nil error on stop request: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	lp = func(events.Event) []events.Listener {
+	provider = func(events.Event) []events.Listener {
 		return []events.Listener{
 			func(context.Context, events.Event) error {
 				cancel()
@@ -245,7 +245,7 @@ func Test_dispatcher_DispatchStop(t *testing.T) {
 			},
 		}
 	}
-	d.SetProvider(topic, lp)
+	d.Reset().AddProviders(topic, provider)
 	_, err = d.Dispatch(ctx, e)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("returned did not return a canceled error on stopping listener triggering cancellation: %v", err)
@@ -264,7 +264,7 @@ func Test_dispatcher_DispatchCancel(t *testing.T) {
 			},
 		}
 	})
-	d := events.NewDispatcher().SetProvider(topic, lp)
+	d := events.NewDispatcher().AddProviders(topic, lp)
 	_, err := d.Dispatch(ctx, events.NewEvent(topic))
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("returned a non-Canceled context error: %v", err)
@@ -273,7 +273,7 @@ func Test_dispatcher_DispatchCancel(t *testing.T) {
 
 func Test_dispatcher_DispatchTimeout(t *testing.T) {
 	const topic = "topic"
-	const delay = 10*time.Microsecond
+	const delay = 10 * time.Microsecond
 	ctx, cancel := context.WithTimeout(context.Background(), delay)
 	defer cancel()
 
@@ -281,12 +281,12 @@ func Test_dispatcher_DispatchTimeout(t *testing.T) {
 		return []events.Listener{
 			func(context.Context, events.Event) error {
 				// Be sure to exceed timeout.
-				time.Sleep(2*delay)
+				time.Sleep(2 * delay)
 				return nil
 			},
 		}
 	})
-	d := events.NewDispatcher().SetProvider(topic, lp)
+	d := events.NewDispatcher().AddProviders(topic, lp)
 	_, err := d.Dispatch(ctx, events.NewEvent(topic))
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("returned a non-DeadlineExceeded context error: %v", err)
@@ -305,7 +305,7 @@ func Test_dispatcher_DispatchError(t *testing.T) {
 			},
 		}
 	})
-	d := events.NewDispatcher().SetProvider(topic, lp)
+	d := events.NewDispatcher().AddProviders(topic, lp)
 	_, err := d.Dispatch(ctx, events.NewEvent(topic))
 	if !errors.Is(err, expected) {
 		t.Fatalf("returned an unexpected error: %v", err)
@@ -325,7 +325,7 @@ func Test_dispatcher_DispatchCancelAndError(t *testing.T) {
 			},
 		}
 	})
-	d := events.NewDispatcher().SetProvider(topic, lp)
+	d := events.NewDispatcher().AddProviders(topic, lp)
 	_, err := d.Dispatch(ctx, events.NewEvent(topic))
 	if !errors.Is(err, expected) {
 		t.Fatalf("returned an unexpected listener error: %v", err)
@@ -336,3 +336,96 @@ func Test_dispatcher_DispatchCancelAndError(t *testing.T) {
 	}
 }
 
+// Test logic: prepare a dispatcher, then reset it in various ways, and check
+// what still gets dispatched.
+func Test_dispatcher_Reset(t *testing.T) {
+	var adderListener events.Listener = func(_ context.Context, e events.Event) error {
+		data, _ := e.Data().(int)
+		data++
+		e.SetData(data)
+		return nil
+	}
+	var triplerListener events.Listener = func(_ context.Context, e events.Event) error {
+		data, _ := e.Data().(int)
+		data *= 3
+		e.SetData(data)
+		return nil
+	}
+	var testProvider events.ListenerProviderFunc = func(e events.Event) []events.Listener {
+		switch e.Topic() {
+		case `add`:
+			return []events.Listener{adderListener}
+		case `mul`:
+			return []events.Listener{triplerListener}
+		}
+		return nil
+	}
+
+	add := func() events.Event { return events.NewEvent(`add`).SetData(1) }
+	mul := func() events.Event { return events.NewEvent(`mul`).SetData(1) }
+
+	tests := []struct {
+		name     string
+		listened []events.Event
+		reset    []events.Topic
+		events   []events.Event
+		want     int
+	}{
+		{"happy 1 topic, reset all",
+			[]events.Event{add()},
+			nil,
+			[]events.Event{add()},
+			1,
+		},
+		{"happy 2 topics, reset all",
+			[]events.Event{add(), mul()},
+			nil,
+			[]events.Event{add()},
+			1,
+		},
+		{"two topics, reset one",
+			[]events.Event{add(), mul()},
+			[]events.Topic{add().Topic()},
+			[]events.Event{add()},
+			1,
+		},
+		{"two topics, reset other",
+			[]events.Event{add(), mul()},
+			[]events.Topic{mul().Topic()},
+			[]events.Event{add()},
+			2,
+		},
+		{"two topics, reset both",
+			[]events.Event{add(), mul()},
+			[]events.Topic{add().Topic(), mul().Topic()},
+			[]events.Event{add()},
+			1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := events.NewDispatcher()
+			for _, event := range tt.listened {
+				d.AddProviders(event.Topic(), testProvider)
+			}
+
+			d.Reset(tt.reset...)
+
+			var e events.Event = nil
+			for _, e = range tt.events {
+				_, err := d.Dispatch(context.Background(), e)
+				if err != nil {
+					t.Fatalf("error during dispatch: %v", err)
+				}
+			}
+
+			got, ok := e.Data().(int)
+			if !ok {
+				t.Errorf("incorrect data type in event: want int, got %T", e.Data())
+			}
+			if got != tt.want {
+				t.Errorf("After reset, got %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
