@@ -1,12 +1,14 @@
-package agent
+package interception
 
 import (
 	"context"
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 
+	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/events"
 )
 
@@ -15,49 +17,72 @@ import (
 // It triggers events for the Connect, Request, and Response stages.
 type RoundTripper struct {
 	events.Dispatcher
-	Config
-	underlying http.RoundTripper
+	*config.Config
+	Underlying http.RoundTripper
 }
 
-// stageValidate validates the destination URL under RFC793, RFC1384, RFC1738
+// schemeRegexp is the regular expression matching the RFC3986 grammar
+// production for URL schemes.
+var schemeRegexp = regexp.MustCompile(`^[\w][-+.\w]+$`)
+
+// RFCListener validates the destination URL under RFC793, RFC1384, RFC1738
 // and RFC3986 before entering the standard Bearer multistage API wrapping.
 //
 // It is hard-coded in the round-tripper to avoid its being disabled.
-func (rt *RoundTripper) stageValidate(url *url.URL) (host string, port uint16, scheme string, err error) {
-	// XXX As some point, we might want to include a host validation, following RFC1738 Sec. 3.1
-	sPort, scheme := url.Port(), url.Scheme
-
-	// RFC3986.
-	if !SchemeRegexp.MatchString(scheme) {
-		return ``, 0, ``, fmt.Errorf("invalid scheme [%s]", scheme)
+func RFCListener(_ context.Context, e events.Event) error {
+	ce, ok := e.(*ConnectEvent)
+	if !ok {
+		return nil
+	}
+	url, ok := ce.Data().(*url.URL)
+	if !ok {
+		return nil
 	}
 
+	ce.Host = url.Hostname()
+
+	// XXX As some point, we might want to include a host validation, following RFC1738 Sec. 3.1
+	ce.Scheme = url.Scheme
+
+	// RFC3986.
+	if !schemeRegexp.MatchString(ce.Scheme) {
+		return fmt.Errorf("invalid scheme [%s]", ce.Scheme)
+	}
+
+	sPort := url.Port()
 	if sPort == `` {
-		return ``, 0, ``, fmt.Errorf("ill-formed port specification in Host [%s]", url.Host)
+		// Cf. Go runtime: src/net/http/transport.go
+		portMap := map[string]string{
+			"http":   "80",
+			"https":  "443",
+			"socks5": "1080",
+		}
+		sPort, ok = portMap[ce.Scheme]
+		if !ok {
+			return fmt.Errorf("ill-formed port specification in Host [%s]", url.Host)
+		}
 	}
 
 	intPort, err := strconv.Atoi(sPort)
 	if err != nil {
 		// This might be a case for a panic, since URL.Port() is expected to
 		// return an empty string if the port is not numeric.
-		return ``, 0, ``, fmt.Errorf("ill-formed port [%s]", sPort)
+		return fmt.Errorf("ill-formed port [%s]", sPort)
 	}
 
 	// RFC793 sec 3.1 and RFC1340 p.7.
-	if port <= 0 || port > 2<<15-1 {
-		return ``, 0, ``, fmt.Errorf("invalid port [%d]", intPort)
+	if intPort <= 0 || intPort > 2<<15-1 {
+		return fmt.Errorf("invalid port [%d]", intPort)
 	}
+	ce.Port = uint16(intPort)
 
-	return url.Hostname(), uint16(intPort), scheme, nil
+	return nil
 }
 
 // stageConnect implements the Bearer Connect stage.
-func (rt *RoundTripper) stageConnect(ctx context.Context, hostname string, port uint16, scheme string) error {
-	_, err := rt.Dispatch(ctx, &ConnectEvent{
-		Host:   hostname,
-		Port:   port,
-		Scheme: scheme,
-	})
+func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) error {
+	e := NewConnectEvent(url)
+	_, err := rt.Dispatch(ctx, e)
 	if err != nil {
 		return err
 	}
@@ -69,7 +94,7 @@ func (rt *RoundTripper) stageConnect(ctx context.Context, hostname string, port 
 
 func (rt *RoundTripper) stageRequest(request *http.Request) error {
 	ctx := request.Context()
-	_, err := rt.Dispatch(ctx, &RequestEvent{Request: request})
+	_, err := rt.Dispatch(ctx, NewRequestEvent(request))
 	if err != nil {
 		return err
 	}
@@ -97,23 +122,16 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	var err error
 	ctx := request.Context()
 
-	host, port, scheme, err := rt.stageValidate(request.URL)
-	if err != nil {
+	if err = rt.stageConnect(ctx, request.URL); err != nil {
 		return nil, err
 	}
 
-	err = rt.stageConnect(ctx, host, port, scheme)
-	if err != nil {
+	if err = rt.stageRequest(request); err != nil {
 		return nil, err
 	}
 
-	err = rt.stageRequest(request)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := rt.underlying.RoundTrip(request)
-	if err != nil {
+	response, err := rt.Underlying.RoundTrip(request)
+	if err != nil || ctx.Err() != nil {
 		return response, err
 	}
 

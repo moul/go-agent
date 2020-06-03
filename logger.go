@@ -38,3 +38,4 @@ func (a *Agent) Warn(msg string, fields map[string]interface{}) {
 func (a *Agent) Error(msg string, fields map[string]interface{}) {
 	a.Logger().Error().Fields(fields).Msg(msg)
 }
+

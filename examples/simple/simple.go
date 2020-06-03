@@ -4,6 +4,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"regexp"
 
 	"github.com/bearer/go-agent"
 	"github.com/bearer/go-agent/examples"
@@ -22,13 +24,17 @@ func main() {
 	//
 	// Note that, since the Go runtime httptest uses manually defined clients,
 	// your running HTTP tests will not trigger extra monitoring calls to Bearer.
-	defer agent.Init(agent.ExampleWellFormedInvalidKey)()
+	secretKey := os.Getenv(agent.SecretKeyName)
+	if !regexp.MustCompile(agent.SecretKeyPattern).MatchString(secretKey) {
+		secretKey = agent.ExampleWellFormedInvalidKey
+	}
+	defer agent.Init(secretKey)()
 
 	// Step 2: use the default Go client as usual to perform your API call.
 	//
 	// The client will trigger monitoring for the request parameters, and the
 	// request and response headers.
-	res, err := http.DefaultClient.Get(examples.APIURL)
+	res, err := http.Get(examples.APIURL)
 	if err != nil {
 		log.Fatalf("calling %s: %v", examples.APIURL, err)
 	}

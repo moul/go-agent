@@ -10,7 +10,7 @@ will just work with no extra work, like the following:
 	defer agent.Init(secretKey)()
 
 	// Step 2: use your API as usual.
-	res, _ := http.DefaultClient.Get(exampleAPIURL.String())
+	res, _ := http.Get(exampleAPIURL.String())
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
 
@@ -64,9 +64,9 @@ as in the following example:
 
 For advanced use cases, you can create multiple agents, and each of them will
 maintain an isolated Bearer profile. Following the example of the Go runtime library,
-the `Init` and `Decorate` functions are actually just helpers using a default
-agent provided by the package, covering the 99% use cases where the application
-only uses a single Bearer agent.
+the `Init` function is actually just a helper using a default agent provided by
+the package, covering the 99% use cases where the application only uses a single
+Bearer agent.
 
 ```go
 	// Step 1: initialize the Bearer agents.

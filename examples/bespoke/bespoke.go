@@ -4,12 +4,19 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"regexp"
 
 	"github.com/bearer/go-agent"
 	"github.com/bearer/go-agent/examples"
 )
 
 func main() {
+	secretKey := os.Getenv(agent.SecretKeyName)
+	if !regexp.MustCompile(agent.SecretKeyPattern).MatchString(secretKey) {
+		secretKey = agent.ExampleWellFormedInvalidKey
+	}
+
 	// Step 1: initialize Bearer.
 	defer agent.Init(agent.ExampleWellFormedInvalidKey)()
 
@@ -18,7 +25,7 @@ func main() {
 
 	// Say your enterprise proxy needs a specific CONNECT header.
 	baseTransport.ProxyConnectHeader = http.Header{"ACME_ID": []string{"some secret"}}
-	transport := agent.Decorate(baseTransport)
+	transport := agent.DefaultAgent.Decorate(baseTransport)
 
 	// Step 3: use your client as usual.
 	client := http.Client{Transport: transport}
