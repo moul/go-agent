@@ -39,7 +39,8 @@ type Config struct {
 
 	// Rules.
 	dataCollectionRules []DataCollectionRule
-	filterRules         []Filter
+	Rules               []interface{} // XXX Agent spec defines the field but no use for it.
+	filters             []Filter
 
 	// Internal dev. options.
 	configHost string
@@ -107,7 +108,7 @@ func WithSecretKey(secretKey string) Option {
 	if !isSecretKeyWellFormed(secretKey) {
 		return errorOption(errors.New("secret key is not well-formed"))
 	}
-	return func (c *Config) error {
+	return func(c *Config) error {
 		c.secretKey = secretKey
 		return nil
 	}
@@ -136,10 +137,10 @@ func WithDataCollectionRules(dcrs []DataCollectionRule) Option {
 	}
 }
 
-// WithFilterRules is an Option configuring the filter rules.
-func WithFilterRules(fs []Filter) Option {
+// WithFilters is an Option configuring the filters.
+func WithFilters(fs []Filter) Option {
 	return func(c *Config) error {
-		c.filterRules = fs
+		c.filters = fs
 		return nil
 	}
 }

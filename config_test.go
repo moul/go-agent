@@ -76,7 +76,6 @@ func TestConfig_WithRuntimeEnvironmentType(t *testing.T) {
 	}
 }
 
-
 func TestConfig_WithSensitiveKeys(t *testing.T) {
 	type testType struct {
 		name     string
