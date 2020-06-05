@@ -1,30 +1,52 @@
 package config
 
 import (
-	"errors"
-	"fmt"
+	"net/http"
 	"regexp"
+	"sync"
+	"time"
+
+	"github.com/rs/zerolog"
+
+	"github.com/bearer/go-agent/filters"
 )
 
 const (
+
+	// SecretKeyName is the environment variable used to hold the Bearer secret key,
+	// specific to each client. Fetching the secret key from the environment is a
+	// best practice in 12-factor application development.
+	SecretKeyName = `BEARER_SECRETKEY`
+
 	// DefaultRuntimeEnvironmentType is the default environment type.
 	DefaultRuntimeEnvironmentType = "default"
 
-	// DefaultConfigHost is the default configuration server for Bearer.
-	DefaultConfigHost = "config.bearer.sh"
+	// DefaultConfigEndpoint is the default configuration endpoint for Bearer.
+	DefaultConfigEndpoint = "https://config.bearer.sh/config"
+
+	// DefaultConfigFetchInterval is the default rate at which the Agent will
+	// asynchronously fetch configuration refreshes from Bearer.
+	DefaultConfigFetchInterval = 60*time.Second
+
 	// DefaultReportHost is the default reporting host for Bearer.
 	DefaultReportHost = "agent.bearer.sh"
-	// SecretKeyRegex is the format of Bearer secret regexps.
-	SecretKeyRegex = `^app_[[:xdigit:]]{50}$`
+
+	// DefaultReportOutstanding it the default maximum number of pending data
+	// collection writes in flight at any given time. When that limit is
+	// exceeded, records are no longer sent to Bearer to avoid saturating the
+	// client.
+	DefaultReportOutstanding = 1000
+
 )
+
+// SecretKeyRegex is the format of Bearer secret keys.
+// It is used to verify the shape of submitted secret keys, before they are
+// sent over to Bearer for value validation.
+var SecretKeyRegex = regexp.MustCompile(`^app_[[:xdigit:]]{50}$`)
 
 // DataCollectionRule represents a data collection rule.
 // @FIXME Define actual type instead of placeholder.
 type DataCollectionRule interface{}
-
-// Filter implements a filtering rule.
-// @FIXME Define actual type instead of placeholder.
-type Filter interface{}
 
 // Config represents the Agent configuration.
 type Config struct {
@@ -34,17 +56,32 @@ type Config struct {
 	secretKey              string
 
 	// Sanitization options.
-	sensitiveRegexes []*regexp.Regexp
+	sensitiveRegexes []*regexp.Regexp // Named per Agent spec, although Go uses "regexp".
 	sensitiveKeys    []*regexp.Regexp
 
 	// Rules.
 	dataCollectionRules []DataCollectionRule
 	Rules               []interface{} // XXX Agent spec defines the field but no use for it.
-	filters             []Filter
+	filters             []filters.Filter
 
 	// Internal dev. options.
-	configHost string
-	reportHost string
+	configEndpoint    string
+	fetchInterval     time.Duration
+	reportHost        string
+	reportOutstanding uint
+
+	// Internal runtime properties.
+	fetcher *Fetcher
+	sync.Mutex
+}
+
+// DisableRemote stops the goroutine updating the Agent configuration periodically.
+func (c *Config) DisableRemote() {
+	if c.fetcher == nil {
+		return
+	}
+	c.fetcher.Stop()
+	c.fetcher = nil
 }
 
 // SecretKey is a getter for secretKey.
@@ -53,8 +90,7 @@ func (c *Config) SecretKey() string {
 }
 
 func isSecretKeyWellFormed(k string) bool {
-	re := regexp.MustCompile(SecretKeyRegex)
-	return re.MatchString(k)
+	return SecretKeyRegex.MatchString(k)
 }
 
 // IsDisabled is a getter for isDisabled, also checking whether the key is plausible.
@@ -80,135 +116,24 @@ func (c *Config) SensitiveRegexps() []*regexp.Regexp {
 // Option is the type use by functional options for configuration.
 type Option func(*Config) error
 
-// NewConfig is the Config constructor.
-func NewConfig(opts ...Option) (*Config, error) {
-	var err error
-	c := Config{
-		runtimeEnvironmentType: DefaultRuntimeEnvironmentType,
-		configHost:             DefaultConfigHost,
-		reportHost:             DefaultReportHost,
+// NewConfig is the default Config constructor: it builds a configuration from
+// the builtin agent defaults, the environment, the Bearer platform configuration
+// and any optional Option values passed by the caller.
+func NewConfig(transport http.RoundTripper, logger *zerolog.Logger, version string, opts ...Option) (*Config, error) {
+	alwaysOn := []Option{
+		OptionDefaults,
+		OptionEnvironment,
+		WithRemote(transport, logger, version),
 	}
-	for _, opt := range opts {
-		err = opt(&c)
+
+	options := append(alwaysOn, opts...)
+	c := &Config{}
+	for _, withOption := range options {
+		err := withOption(c)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &c, nil
-}
 
-// Disabled is an Option disabling the agent.
-func Disabled(c *Config) error {
-	c.isDisabled = true
-	return nil
-}
-
-// WithSecretKey is an Option setting the secret key if it is well-formed.
-func WithSecretKey(secretKey string) Option {
-	if !isSecretKeyWellFormed(secretKey) {
-		return errorOption(errors.New("secret key is not well-formed"))
-	}
-	return func(c *Config) error {
-		c.secretKey = secretKey
-		return nil
-	}
-}
-
-// WithRuntimeEnvironmentType is an Option configuring the runtime environment type.
-//
-// The environment type is a free-form tag for clients, allowing them to report
-// which type of environment they are running in, like "development", "staging"
-// or "production", for reporting in the Bearer UI.
-//
-// It allows clients to avoid the issues associated with having development and
-// production metrics grouped together although they have different use profiles.
-func WithRuntimeEnvironmentType(rtet string) Option {
-	return func(c *Config) error {
-		c.runtimeEnvironmentType = rtet
-		return nil
-	}
-}
-
-// WithDataCollectionRules is an Option configuring the data collection rules.
-func WithDataCollectionRules(dcrs []DataCollectionRule) Option {
-	return func(c *Config) error {
-		c.dataCollectionRules = dcrs
-		return nil
-	}
-}
-
-// WithFilters is an Option configuring the filters.
-func WithFilters(fs []Filter) Option {
-	return func(c *Config) error {
-		c.filters = fs
-		return nil
-	}
-}
-
-func errorOption(err error) Option {
-	return func(*Config) error {
-		return err
-	}
-}
-
-// WithSensitiveKeys is an Option configuring the sensitive regexps.
-//
-// It will return an error if any key is empty. Duplicate regexps will be reduced
-// to unique values to limit filtering costs.
-func WithSensitiveKeys(keys []string) Option {
-	dups := make(map[string]int, len(keys))
-	var reduced []*regexp.Regexp
-	for _, key := range keys {
-		if key == "" {
-			return errorOption(errors.New("empty string may not be used as a sensitive key"))
-		}
-		dups[key]++
-		if dups[key] > 1 {
-			continue
-		}
-		reKey, err := regexp.Compile(key)
-		if err != nil {
-			return errorOption(fmt.Errorf("invalid sensitive key regexp: %s", key))
-		}
-		reduced = append(reduced, reKey)
-	}
-	// For non-nil empty slice, return a non-nil empty slice too.
-	if keys != nil && reduced == nil {
-		reduced = make([]*regexp.Regexp, 0)
-	}
-	return func(c *Config) error {
-		c.sensitiveKeys = reduced
-		return nil
-	}
-}
-
-// WithSensitiveRegexps is an Option configuring the sensitive regular expressions.
-//
-// It will cause an error if any of the regular expressions is invalid.
-func WithSensitiveRegexps(res []string) Option {
-	dups := make(map[string]int, len(res))
-	var reduced []*regexp.Regexp
-	for _, re := range res {
-		if re == "" {
-			return errorOption(errors.New("empty string may not be used as a sensitive regex"))
-		}
-		dups[re]++
-		if dups[re] > 1 {
-			continue
-		}
-		rer, err := regexp.Compile(re)
-		if err != nil {
-			return errorOption(err)
-		}
-		reduced = append(reduced, rer)
-	}
-
-	// For non-nil empty slice, return a non-nil empty slice too.
-	if res != nil && reduced == nil {
-		reduced = []*regexp.Regexp{}
-	}
-	return func(c *Config) error {
-		c.sensitiveRegexes = reduced
-		return nil
-	}
+	return c, nil
 }

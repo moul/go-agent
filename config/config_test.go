@@ -1,18 +1,24 @@
 package config_test
 
 import (
+	"io/ioutil"
 	"reflect"
 	"regexp"
 	"testing"
 
+	"github.com/rs/zerolog"
+
+	"github.com/bearer/go-agent"
 	"github.com/bearer/go-agent/config"
 )
 
-// This key is well-formed but invalid.
-const wellFormedKey = "app_01234567890123456789012345678901234567890123456789"
+func z() *zerolog.Logger {
+	z := zerolog.New(ioutil.Discard)
+	return &z
+}
 
 func TestConfig_Default(t *testing.T) {
-	actual, err := config.NewConfig(config.WithSecretKey(wellFormedKey))
+	actual, err := config.NewConfig(nil, z(), agent.Version, config.WithSecretKey(agent.ExampleWellFormedInvalidKey))
 	if err != nil {
 		t.Errorf("failed building default config")
 	}
@@ -22,14 +28,14 @@ func TestConfig_Default(t *testing.T) {
 	if actual.RuntimeEnvironmentType() != config.DefaultRuntimeEnvironmentType {
 		t.Errorf("incorrect default for runtimeEnvironmentType")
 	}
-	if actual.SecretKey() != wellFormedKey {
+	if actual.SecretKey() != agent.ExampleWellFormedInvalidKey {
 		t.Errorf("incorrect default for secretKey")
 	}
 }
 
 func TestConfigInvalidSecretKey(t *testing.T) {
 	const key = "invalid key"
-	actual, err := config.NewConfig(config.WithSecretKey(key))
+	actual, err := config.NewConfig(nil, z(), agent.Version, config.WithSecretKey(key))
 	if err == nil {
 		t.Errorf("failed building default config")
 	}
@@ -39,7 +45,7 @@ func TestConfigInvalidSecretKey(t *testing.T) {
 }
 
 func TestConfig_WithoutKey(t *testing.T) {
-	actual, err := config.NewConfig()
+	actual, err := config.NewConfig(nil, z(), agent.Version)
 	if err != nil {
 		t.Errorf("failed building config without a secret key")
 	}
@@ -52,7 +58,9 @@ func TestConfig_WithoutKey(t *testing.T) {
 }
 
 func TestConfig_Disabled(t *testing.T) {
-	actual, err := config.NewConfig(config.WithSecretKey(wellFormedKey), config.Disabled)
+	actual, err := config.NewConfig(nil, z(), agent.Version,
+		config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
+		config.OptionDisabled)
 	if err != nil {
 		t.Errorf("failed building disabled config")
 	}
@@ -63,8 +71,8 @@ func TestConfig_Disabled(t *testing.T) {
 
 func TestConfig_WithRuntimeEnvironmentType(t *testing.T) {
 	const expected = "production"
-	c, err := config.NewConfig(
-		config.WithSecretKey(wellFormedKey),
+	c, err := config.NewConfig(nil, z(), agent.Version,
+		config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
 		config.WithRuntimeEnvironmentType(expected),
 	)
 	if err != nil {
@@ -93,8 +101,8 @@ func TestConfig_WithSensitiveKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := config.NewConfig(
-				config.WithSecretKey(wellFormedKey),
+			c, err := config.NewConfig(nil, z(), agent.Version,
+				config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
 				config.WithSensitiveKeys(tt.keys),
 			)
 			if err != nil && !tt.wantFail {
@@ -140,8 +148,8 @@ func TestConfig_WithSensitiveRegexes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			agent, err := config.NewConfig(
-				config.WithSecretKey(wellFormedKey),
+			agent, err := config.NewConfig(nil, z(), agent.Version,
+				config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
 				config.WithSensitiveRegexps(tt.regexps),
 			)
 			if err != nil && !tt.wantFail {
