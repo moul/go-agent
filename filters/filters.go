@@ -1,7 +1,9 @@
 package filters
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 )
 
 // Stage represents the stage an API call is in.
@@ -91,5 +93,51 @@ var (
 	//responseBodiesFilter FilterType = filterType{"ResponseBodiesFilter", false, true}
 
 	//connectionErrorFilter FilterType = filterType{"ConnectionErrorFilter", false, false}
-	yesInternalFilter     FilterType = filterType{"YesFilter", false, false}
+	yesInternalFilter FilterType = filterType{"YesFilter", false, false}
 )
+
+// FilterDescription is a kind of "union type" describing all possible
+// fields returned by the config server, with TypeName acting as the discriminator.
+type FilterDescription struct {
+	// Value is set on filters using filters.StringMatcher, like filters.HTTPMethodFilter.
+	Value string
+
+	// Pattern is set on filters using filters.RegexpMatcher, like filters.DomainFilter.
+	// XXX Its fields are not portable across regexp implementations.
+	Pattern RegexpMatcherDescription
+
+	// ChildHashes is set on filters.FilterSet filters
+	ChildHashes []string
+
+	// Operator is set on filters.FilterSet filters. It may only be `ANY` or `ALL`.
+	Operator string
+
+	// Range is set on filters using filters.RangeMatcher like filters.StatusCodeFilter.
+	Range RangeMatcherDescription
+
+	// StageType is one of the 4 API call stages.
+	StageType string
+
+	// TypeName is the name of the filter type, used to select which fields
+	// from the config to parse.
+	TypeName string
+}
+
+func (d FilterDescription) String() string {
+	b := strings.Builder{}
+	b.WriteString(fmt.Sprintf("%-22s - %-20s - ", d.TypeName, d.StageType))
+	l1 := len(b.String())
+	if d.Value != `` {
+		b.WriteString(`Value: ` + d.Value + "\n")
+	}
+	b.WriteString(d.Pattern.String())
+	if len(d.ChildHashes) > 0 || d.Operator != `` {
+		b.WriteString(fmt.Sprintf("%s(%s)\n", d.Operator, strings.Join(d.ChildHashes, `, `)))
+	}
+	b.WriteString(d.Range.String())
+	s := b.String()
+	if len(s) == l1 {
+		s += "\n"
+	}
+	return s
+}

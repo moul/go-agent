@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -12,13 +13,18 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	"github.com/bearer/go-agent/filters"
 )
 
 const (
+	// EOL is ASCII LF as a string.
+	EOL = "\n"
+
 	// ContentTypeHeader is the canonical content type header name.
 	ContentTypeHeader = `Content-Type`
 	// ContentTypeJSON is the canonical content type header value for JSON.
-	ContentTypeJSON   = `application/json; charset=utf-8`
+	ContentTypeJSON = `application/json; charset=utf-8`
 
 	// HostUnknown is a reserved host name used when the Agent cannot obtain the
 	// client host name from the operating system.
@@ -52,6 +58,55 @@ type Report struct {
 	Runtime     RuntimeReport     `json:"runtime"`
 	Agent       AgentReport       `json:"agent"`
 	Application ApplicationReport `json:"application"`
+}
+
+// DataCollectionRuleDescription is a serialization-friendly description for a
+// data collection rule.
+type DataCollectionRuleDescription struct {
+	FilterHash string
+	Params     struct {
+		AggregationFilterHash string
+		Buid                  string
+		IsErrorTriggerfilter  bool
+		TypeName              string
+	}
+	Signature string
+}
+
+func (d DataCollectionRuleDescription) String() string {
+	b := strings.Builder{}
+	hash := d.FilterHash
+	if hash == `` {
+		hash = `(unset)`
+	}
+	b.WriteString(fmt.Sprintf("%-28s: %s\n", hash, d.Params.TypeName))
+	return b.String()
+}
+
+// Description is a serialization-friendly description of the parts of Config
+// which may come from the config server.
+type Description struct {
+	DataCollectionRules []DataCollectionRuleDescription
+	Filters             map[string]filters.FilterDescription
+	Rules               []struct {
+		FilterHash   string
+		ID           int
+		Remediations []interface{}
+		RuleType     string
+	}
+}
+
+func (rc Description) String() string {
+	b := strings.Builder{}
+	b.WriteString("Data Collection Rules\n")
+	for _, dcr := range rc.DataCollectionRules {
+		b.WriteString(dcr.String())
+	}
+	b.WriteString("Filters\n")
+	for k, f := range rc.Filters {
+		b.WriteString(fmt.Sprintf("%s: %s", k, f))
+	}
+	return b.String()
 }
 
 func makeConfigReport(version string) Report {
@@ -130,12 +185,12 @@ func (f *Fetcher) Fetch() *Config {
 		f.logger.Warn().Msgf("reading remote config received from Bearer: %v", err)
 		return nil
 	}
-	remoteConf := make(map[string]interface{})
+	remoteConf := Description{}
 	if err := json.Unmarshal(body, &remoteConf); err != nil {
 		f.logger.Warn().Msgf("decoding remote config received from Bearer: %v", err)
 		return nil
 	}
-	f.logger.Debug().Msgf("Remote conf: %#v", remoteConf)
+	fmt.Println(remoteConf)
 
 	return &Config{}
 }

@@ -15,7 +15,7 @@ func (ts testString) String() string {
 
 func TestRegexMatcher_Matches(t *testing.T) {
 	var (
-		BearerMatcher = regexMatcher{Pattern: regexp.MustCompile(BearerRE)}
+		BearerMatcher = regexpMatcher{Pattern: regexp.MustCompile(BearerRE)}
 	)
 	tests := []struct {
 		r RegexpMatcher
@@ -30,7 +30,7 @@ func TestRegexMatcher_Matches(t *testing.T) {
 		{&BearerMatcher, errors.New(BearerDomain), true},
 		{&BearerMatcher, testString(BearerDomain), true},
 		{&BearerMatcher, 42, false},
-		{&regexMatcher{}, ``, true},
+		{&regexpMatcher{}, ``, true},
 	}
 
 	for _, tt := range tests {
@@ -46,7 +46,7 @@ func TestRegexMatcher_Matches(t *testing.T) {
 
 func TestRegexMatcher_Regexp(t *testing.T) {
 	matcher := NewRegexpMatcher(BearerRE)
-	rm, ok := matcher.(*regexMatcher)
+	rm, ok := matcher.(*regexpMatcher)
 	if !ok {
 		t.Fatalf("expected %T matcher, got %T", NewEmptyRegexpMatcher(), matcher)
 	}

@@ -1,6 +1,9 @@
 package filters
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 // NewHTTPStatusMatcher returns a range matcher for the valid HTTP status code range.
 func NewHTTPStatusMatcher() RangeMatcher {
@@ -16,6 +19,7 @@ func NewHTTPStatusMatcher() RangeMatcher {
 // which will define the semi-open interval [minInt, 200[.
 type RangeMatcher interface {
 	Matcher
+	fmt.Stringer
 	Contains(int) bool
 	From(int) RangeMatcher
 	To(int) RangeMatcher
@@ -116,3 +120,39 @@ func NewRangeMatcher() RangeMatcher {
 		hi: maxInt,
 	}
 }
+
+// RangeMatcherDescription is a serialization-friendly description of a RangeMatcher.
+type RangeMatcherDescription struct {
+	From        interface{} // FIXME Config server returns inconsistent types.
+	To          interface{} // FIXME Config server returns inconsistent types.
+	ExcludeFrom bool
+	ExcludeTo   bool
+}
+
+// String() implements fmt.Stringer.
+func (d RangeMatcherDescription) String() string {
+	if d.From == nil && d.To == nil {
+		return ``
+	}
+	toInt := func(mixed interface{}) int {
+		switch x := d.From.(type) {
+		case string:
+			n, _ := strconv.Atoi(x)
+			return n
+		case int:
+			return x
+		default:
+			return 0
+		}
+	}
+
+	rm := NewRangeMatcher().From(toInt(d.From)).To(toInt(d.To))
+	if d.ExcludeFrom {
+		rm.ExcludeFrom()
+	}
+	if d.ExcludeTo {
+		rm.ExcludeTo()
+	}
+	return `Range: ` + rm.String() + "\n"
+}
+
