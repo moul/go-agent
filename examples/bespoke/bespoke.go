@@ -5,15 +5,15 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 
 	"github.com/bearer/go-agent"
+	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/examples"
 )
 
 func main() {
-	secretKey := os.Getenv(agent.SecretKeyName)
-	if !regexp.MustCompile(agent.SecretKeyPattern).MatchString(secretKey) {
+	secretKey := os.Getenv(config.SecretKeyName)
+	if !config.SecretKeyRegex.MatchString(secretKey) {
 		secretKey = agent.ExampleWellFormedInvalidKey
 	}
 

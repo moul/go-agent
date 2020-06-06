@@ -129,24 +129,27 @@ type RangeMatcherDescription struct {
 	ExcludeTo   bool
 }
 
+// ToInt converts any value to an int. Strings not describing integer numbers,
+// and all types except int convert to 0.
+func (RangeMatcherDescription) ToInt(mixed interface{}) int {
+	switch x := mixed.(type) {
+	case string:
+		n, _ := strconv.Atoi(x)
+		return n
+	case int:
+		return x
+	default:
+		return 0
+	}
+}
+
 // String() implements fmt.Stringer.
 func (d RangeMatcherDescription) String() string {
 	if d.From == nil && d.To == nil {
 		return ``
 	}
-	toInt := func(mixed interface{}) int {
-		switch x := d.From.(type) {
-		case string:
-			n, _ := strconv.Atoi(x)
-			return n
-		case int:
-			return x
-		default:
-			return 0
-		}
-	}
 
-	rm := NewRangeMatcher().From(toInt(d.From)).To(toInt(d.To))
+	rm := NewRangeMatcher().From(d.ToInt(d.From)).To(d.ToInt(d.To))
 	if d.ExcludeFrom {
 		rm.ExcludeFrom()
 	}

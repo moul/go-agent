@@ -55,9 +55,9 @@ func TestParamFilter_SetMatcher(t *testing.T) {
 }
 
 func TestParamFilter_Type(t *testing.T) {
-	expected := paramFilter
+	expected := ParamFilterType.String()
 	var f ParamFilter
-	actual := f.Type()
+	actual := f.Type().String()
 	if actual != expected {
 		t.Errorf("Type() = %v, want %v", actual, expected)
 	}

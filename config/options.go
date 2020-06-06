@@ -64,6 +64,7 @@ func WithFilters(fs []filters.Filter) Option {
 // WithRemote is an always-on functional Option loading values from Bearer platform configuration.
 func WithRemote(transport http.RoundTripper, logger *zerolog.Logger, version string) Option {
 	return func(c *Config) error {
+		c.logger = logger
 		fetcher := NewFetcher(transport, logger, version, c)
 		fetcher.Fetch()
 		return nil

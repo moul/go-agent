@@ -12,7 +12,7 @@ type PathFilter struct {
 
 // Type is part of the Filter interface.
 func (*PathFilter) Type() FilterType {
-	return pathFilter
+	return PathFilterType
 }
 
 func (f *PathFilter) ensureMatcher() {
@@ -51,4 +51,19 @@ func (f *PathFilter) SetMatcher(matcher Matcher) error {
 	}
 	f.RegexpMatcher = rm
 	return nil
+}
+
+func pathFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
+	r, ok := d.(RegexpMatcherDescription)
+	if !ok {
+		return nil
+	}
+	// FIXME apply RegexpMatcherDescription.Flags
+	m := NewRegexpMatcher(r.Value)
+	f := &PathFilter{}
+	err := f.SetMatcher(m)
+	if err != nil {
+		return nil
+	}
+	return f
 }

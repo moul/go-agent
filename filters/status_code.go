@@ -12,7 +12,7 @@ type StatusCodeFilter struct {
 
 // Type is part of the Filter interface.
 func (*StatusCodeFilter) Type() FilterType {
-	return statusCodeFilter
+	return StatusCodeFilterType
 }
 
 func (f *StatusCodeFilter) ensureMatcher() {
@@ -42,4 +42,30 @@ func (f *StatusCodeFilter) SetMatcher(matcher Matcher) error {
 	}
 	f.RangeMatcher = rm
 	return nil
+}
+
+func statusCodeFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
+	r, ok := d.(RangeMatcherDescription)
+	if !ok {
+		return nil
+	}
+	m := NewRangeMatcher()
+	if r.From != `` {
+		m.From(r.ToInt(r.From))
+	}
+	if r.To != `` {
+		m.To(r.ToInt(r.To))
+	}
+	if r.ExcludeFrom {
+		m.ExcludeFrom()
+	}
+	if r.ExcludeTo {
+		m.ExcludeTo()
+	}
+	f := &StatusCodeFilter{}
+	err := f.SetMatcher(m)
+	if err != nil {
+		return nil
+	}
+	return f
 }

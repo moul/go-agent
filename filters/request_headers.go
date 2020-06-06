@@ -13,7 +13,7 @@ type RequestHeadersFilter struct {
 
 // Type is part of the Filter interface.
 func (f *RequestHeadersFilter) Type() FilterType {
-	return requestHeadersFilter
+	return RequestHeadersFilterType
 }
 
 func (f *RequestHeadersFilter) ensureMatcher() {
@@ -51,4 +51,22 @@ func (f *RequestHeadersFilter) SetMatcher(matcher Matcher) error {
 
 	f.KeyValueMatcher = m
 	return nil
+}
+
+func requestFilterHeadersFromDescription(filterMap FilterMap, d interface{}) Filter {
+	kvd, ok := d.(KeyValueDescription)
+	if !ok {
+		return nil
+	}
+	// FIXME apply RegexpMatcherDescription.Flags
+	m := NewKeyValueMatcher(kvd.KeyPattern.Value, kvd.ValuePattern.Value)
+	if m == nil {
+		return nil
+	}
+	f := &RequestHeadersFilter{}
+	err := f.SetMatcher(m)
+	if err != nil {
+		return nil
+	}
+	return f
 }

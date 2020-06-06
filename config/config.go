@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"sync"
@@ -26,7 +27,7 @@ const (
 
 	// DefaultConfigFetchInterval is the default rate at which the Agent will
 	// asynchronously fetch configuration refreshes from Bearer.
-	DefaultConfigFetchInterval = 60*time.Second
+	DefaultConfigFetchInterval = 60 * time.Second
 
 	// DefaultReportHost is the default reporting host for Bearer.
 	DefaultReportHost = "agent.bearer.sh"
@@ -36,7 +37,6 @@ const (
 	// exceeded, records are no longer sent to Bearer to avoid saturating the
 	// client.
 	DefaultReportOutstanding = 1000
-
 )
 
 // SecretKeyRegex is the format of Bearer secret keys.
@@ -68,6 +68,7 @@ type Config struct {
 
 	// Internal runtime properties.
 	fetcher *Fetcher
+	logger  *zerolog.Logger
 	sync.Mutex
 }
 
@@ -107,6 +108,23 @@ func (c *Config) SensitiveKeys() []*regexp.Regexp {
 // SensitiveRegexps is a getter for sensitiveRegexps.
 func (c *Config) SensitiveRegexps() []*regexp.Regexp {
 	return c.sensitiveRegexes
+}
+
+// UpdateFromDescription overrides the Config with configuration generated from
+// a configuration Description.
+func (c *Config) UpdateFromDescription(description Description) {
+	filterDescriptions, err := description.filterDescriptions()
+	if err != nil {
+		c.logger.Warn().Msgf(`invalid configuration received from config server: %v`, err)
+		return
+	}
+	resolved, err := description.resolveHashes(filterDescriptions)
+	if err != nil {
+		c.logger.Warn().Msgf(`incorrect filter resolution in configuration received from config server: %v`, err)
+		return
+	}
+	// FIXME implement
+	fmt.Printf("Applying filters: %v", resolved)
 }
 
 // Option is the type use by functional options for configuration.

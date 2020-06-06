@@ -17,7 +17,7 @@ type HTTPMethodFilter struct {
 
 // Type is part of the Filter interface.
 func (*HTTPMethodFilter) Type() FilterType {
-	return httpMethodFilter
+	return HTTPMethodFilterType
 }
 
 // MatchesCall is part of the Filter interface.
@@ -58,4 +58,17 @@ func (f *HTTPMethodFilter) SetMatcher(matcher Matcher) error {
 
 	f.StringMatcher = m
 	return nil
+}
+
+func methodFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
+	s, ok := d.(string)
+	if !ok {
+		return nil
+	}
+	f := &HTTPMethodFilter{}
+	err := f.SetMatcher(NewStringMatcher(s, true))
+	if err != nil {
+		return nil
+	}
+	return f
 }
