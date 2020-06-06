@@ -5,6 +5,7 @@ package filters
 import (
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // FilterSetOperator represents the operators available in Filter sets.
@@ -101,4 +102,21 @@ func (f *filterSet) AddChildren(filters ...Filter) FilterSet {
 
 func (f *filterSet) Children() []Filter {
 	return f.children
+}
+
+// FilterSetDescription provides a serialization-friendly description of a FilterSet.
+type FilterSetDescription struct {
+	// ChildHashes is set on filters.FilterSet filters
+	ChildHashes []string
+
+	// Operator is set on filters.FilterSet filters. It may only be `ANY` or `ALL`.
+	Operator string
+}
+
+// String implements fmt.Stringer.
+func (d FilterSetDescription) String() string {
+	if len(d.ChildHashes) > 0 || d.Operator != `` {
+		return fmt.Sprintf("%s(%s)\n", d.Operator, strings.Join(d.ChildHashes, `, `))
+	}
+	return ``
 }

@@ -44,10 +44,6 @@ const (
 // sent over to Bearer for value validation.
 var SecretKeyRegex = regexp.MustCompile(`^app_[[:xdigit:]]{50}$`)
 
-// DataCollectionRule represents a data collection rule.
-// @FIXME Define actual type instead of placeholder.
-type DataCollectionRule interface{}
-
 // Config represents the Agent configuration.
 type Config struct {
 	// Generation options

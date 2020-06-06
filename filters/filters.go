@@ -106,11 +106,7 @@ type FilterDescription struct {
 	// XXX Its fields are not portable across regexp implementations.
 	Pattern RegexpMatcherDescription
 
-	// ChildHashes is set on filters.FilterSet filters
-	ChildHashes []string
-
-	// Operator is set on filters.FilterSet filters. It may only be `ANY` or `ALL`.
-	Operator string
+	FilterSetDescription ``
 
 	// Range is set on filters using filters.RangeMatcher like filters.StatusCodeFilter.
 	Range RangeMatcherDescription
@@ -131,9 +127,7 @@ func (d FilterDescription) String() string {
 		b.WriteString(`Value: ` + d.Value + "\n")
 	}
 	b.WriteString(d.Pattern.String())
-	if len(d.ChildHashes) > 0 || d.Operator != `` {
-		b.WriteString(fmt.Sprintf("%s(%s)\n", d.Operator, strings.Join(d.ChildHashes, `, `)))
-	}
+	b.WriteString(d.FilterSetDescription.String())
 	b.WriteString(d.Range.String())
 	s := b.String()
 	if len(s) == l1 {

@@ -60,29 +60,6 @@ type Report struct {
 	Application ApplicationReport `json:"application"`
 }
 
-// DataCollectionRuleDescription is a serialization-friendly description for a
-// data collection rule.
-type DataCollectionRuleDescription struct {
-	FilterHash string
-	Params     struct {
-		AggregationFilterHash string
-		Buid                  string
-		IsErrorTriggerfilter  bool
-		TypeName              string
-	}
-	Signature string
-}
-
-func (d DataCollectionRuleDescription) String() string {
-	b := strings.Builder{}
-	hash := d.FilterHash
-	if hash == `` {
-		hash = `(unset)`
-	}
-	b.WriteString(fmt.Sprintf("%-28s: %s\n", hash, d.Params.TypeName))
-	return b.String()
-}
-
 // Description is a serialization-friendly description of the parts of Config
 // which may come from the config server.
 type Description struct {
@@ -191,7 +168,7 @@ func (f *Fetcher) Fetch() *Config {
 		return nil
 	}
 	fmt.Println(remoteConf)
-
+	fmt.Printf("%s\n", body)
 	return &Config{}
 }
 
