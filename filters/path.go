@@ -53,13 +53,9 @@ func (f *PathFilter) SetMatcher(matcher Matcher) error {
 	return nil
 }
 
-func pathFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
-	r, ok := d.(RegexpMatcherDescription)
-	if !ok {
-		return nil
-	}
+func pathFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
 	// FIXME apply RegexpMatcherDescription.Flags
-	m := NewRegexpMatcher(r.Value)
+	m := NewRegexpMatcher(fd.Pattern.Value)
 	f := &PathFilter{}
 	err := f.SetMatcher(m)
 	if err != nil {

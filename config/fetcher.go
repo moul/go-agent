@@ -141,7 +141,11 @@ func (d Description) filterDescriptions() (map[string]*filters.FilterDescription
 // Algorithm inspired by https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html
 // Published under a permissive license
 func (d Description) resolveHashes(descriptions map[string]*filters.FilterDescription) (filters.FilterMap, error) {
-	type filterSlice []struct{hash string; filters.Filter}
+	// TODO simplify type: filter is always nil.
+	type filterSlice []struct {
+		hash string
+		filters.Filter
+	}
 
 	resolved := make(filterSlice, 0, len(descriptions))
 	unresolved := make(map[string]*filters.FilterDescription)
@@ -179,7 +183,10 @@ func (d Description) resolveHashes(descriptions map[string]*filters.FilterDescri
 			}
 		}
 		if resolvedIndexOf(resolved, hash) == -1 {
-			resolved = append(resolved, struct{hash string; filters.Filter}{hash, nil})
+			resolved = append(resolved, struct {
+				hash string
+				filters.Filter
+			}{hash, nil})
 		}
 		delete(unresolved, hash)
 		return nil
@@ -194,7 +201,7 @@ func (d Description) resolveHashes(descriptions map[string]*filters.FilterDescri
 
 	res := make(filters.FilterMap, len(resolved))
 	for _, info := range resolved {
-		res[info.hash] = info.Filter
+		res[info.hash] = filters.NewFilterFromDescription(res, descriptions[info.hash])
 	}
 	return res, nil
 }
@@ -236,6 +243,7 @@ type Fetcher struct {
 func NewFetcher(transport http.RoundTripper, logger *zerolog.Logger, version string, config *Config) *Fetcher {
 	return &Fetcher{
 		config:    config,
+		done:      make(chan bool),
 		logger:    logger,
 		ticker:    time.NewTicker(config.fetchInterval),
 		transport: transport,
@@ -280,9 +288,6 @@ func (f *Fetcher) Fetch() {
 		f.logger.Warn().Msgf("decoding remote config received from Bearer: %v", err)
 		return
 	}
-	fmt.Println(remoteConf)
-	fmt.Printf("%s\n", body)
-	fmt.Println(remoteConf.filterDescriptions())
 	f.config.UpdateFromDescription(remoteConf)
 }
 
@@ -294,5 +299,22 @@ func (f *Fetcher) Stop() {
 
 // Start activates the fetcher background operation.
 func (f *Fetcher) Start() {
-	// TODO implement.
+	if f.done == nil {
+		f.done = make(chan bool)
+	}
+	if f.ticker == nil {
+		f.ticker = time.NewTicker(f.config.fetchInterval)
+	}
+	go func() {
+		defer f.ticker.Stop()
+		for {
+			select {
+			case <-f.done:
+				return
+			case <-f.ticker.C:
+				f.logger.Debug().Msgf(`Fetching`)
+				f.Fetch()
+			}
+		}
+	}()
 }

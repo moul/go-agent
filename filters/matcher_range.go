@@ -138,6 +138,8 @@ func (RangeMatcherDescription) ToInt(mixed interface{}) int {
 		return n
 	case int:
 		return x
+	case float64:
+		return int(x)
 	default:
 		return 0
 	}

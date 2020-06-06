@@ -44,11 +44,8 @@ func (f *StatusCodeFilter) SetMatcher(matcher Matcher) error {
 	return nil
 }
 
-func statusCodeFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
-	r, ok := d.(RangeMatcherDescription)
-	if !ok {
-		return nil
-	}
+func statusCodeFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
+	r := fd.Range
 	m := NewRangeMatcher()
 	if r.From != `` {
 		m.From(r.ToInt(r.From))

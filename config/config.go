@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"net/http"
 	"regexp"
 	"sync"
@@ -27,7 +26,7 @@ const (
 
 	// DefaultConfigFetchInterval is the default rate at which the Agent will
 	// asynchronously fetch configuration refreshes from Bearer.
-	DefaultConfigFetchInterval = 60 * time.Second
+	DefaultConfigFetchInterval = 5 * time.Second
 
 	// DefaultReportHost is the default reporting host for Bearer.
 	DefaultReportHost = "agent.bearer.sh"
@@ -58,7 +57,7 @@ type Config struct {
 	// Rules.
 	dataCollectionRules []DataCollectionRule
 	Rules               []interface{} // XXX Agent spec defines the field but no use for it.
-	filters             []filters.Filter
+	filters             filters.FilterMap
 
 	// Internal dev. options.
 	configEndpoint    string
@@ -113,6 +112,8 @@ func (c *Config) SensitiveRegexps() []*regexp.Regexp {
 // UpdateFromDescription overrides the Config with configuration generated from
 // a configuration Description.
 func (c *Config) UpdateFromDescription(description Description) {
+	c.Lock()
+	defer c.Unlock()
 	filterDescriptions, err := description.filterDescriptions()
 	if err != nil {
 		c.logger.Warn().Msgf(`invalid configuration received from config server: %v`, err)
@@ -123,8 +124,7 @@ func (c *Config) UpdateFromDescription(description Description) {
 		c.logger.Warn().Msgf(`incorrect filter resolution in configuration received from config server: %v`, err)
 		return
 	}
-	// FIXME implement
-	fmt.Printf("Applying filters: %v", resolved)
+	c.filters = resolved
 }
 
 // Option is the type use by functional options for configuration.
@@ -137,7 +137,7 @@ func NewConfig(transport http.RoundTripper, logger *zerolog.Logger, version stri
 	alwaysOn := []Option{
 		OptionDefaults,
 		OptionEnvironment,
-		WithRemote(transport, logger, version),
+		WithRemote(transport, logger, version), // Sets Fetcher.
 	}
 
 	options := append(alwaysOn, opts...)
@@ -148,6 +148,6 @@ func NewConfig(transport http.RoundTripper, logger *zerolog.Logger, version stri
 			return nil, err
 		}
 	}
-
+	c.fetcher.Start()
 	return c, nil
 }

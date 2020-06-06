@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/bearer/go-agent"
 	"github.com/bearer/go-agent/config"
@@ -52,4 +53,5 @@ func main() {
 	}
 
 	examples.ShowOrg(body)
+	time.Sleep(10 * time.Second)
 }

@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Unit tests, interception" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="Unit tests, config" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="bearer-go-agent" />
     <working_directory value="$PROJECT_DIR$/" />
     <go_parameters value="-i" />
@@ -15,7 +15,7 @@
     </EXTENSION>
     <framework value="gotest" />
     <kind value="PACKAGE" />
-    <package value="github.com/bearer/go-agent/interception" />
+    <package value="github.com/bearer/go-agent/config" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$/" />
     <method v="2" />

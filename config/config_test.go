@@ -12,6 +12,8 @@ import (
 	"github.com/bearer/go-agent/config"
 )
 
+// TODO improve tests to avoid calling the config server.
+
 func z() *zerolog.Logger {
 	z := zerolog.New(ioutil.Discard)
 	return &z

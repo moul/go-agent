@@ -5,7 +5,6 @@ package filters
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -95,7 +94,7 @@ func (f *filterSet) SetMatcher(matcher Matcher) error {
 func (f *filterSet) AddChildren(filters ...Filter) FilterSet {
 	for _, filter := range filters {
 		if !isNilInterface(filter) {
-			f.children = append(f.children, filters...)
+			f.children = append(f.children, filter)
 		}
 	}
 	return f
@@ -128,25 +127,28 @@ func (d FilterSetDescription) String() string {
 	return ``
 }
 
-func setFilterFromDescription(filtersMap FilterMap, d interface{}) Filter {
-	fsd, ok := d.(FilterSetDescription)
-	if !ok {
-		return nil
+func setFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
+	var op FilterSetOperator
+	switch {
+	case strings.EqualFold(fd.Operator, Any.String()):
+		op = Any
+	case strings.EqualFold(fd.Operator, All.String()):
+		op = All
+	case strings.EqualFold(fd.Operator, NotFirst.String()):
+		op = NotFirst
+	default:
+		op = Any
 	}
-	n, err := strconv.Atoi(fsd.Operator)
-	if err != nil {
-		n = 0 // Any
-	}
-	children := make([]Filter, len(fsd.ChildHashes))
-	for _, h := range fsd.ChildHashes {
+	children := make([]Filter, 0, len(fd.ChildHashes))
+	for _, h := range fd.ChildHashes {
 		var f Filter
-		f, ok := filtersMap[h]
+		f, ok := filterMap[h]
 		if !ok {
 			return nil
 		}
 		children = append(children, f)
 	}
 
-	f := NewFilterSet(FilterSetOperator(n), children...)
+	f := NewFilterSet(op, children...)
 	return f
 }

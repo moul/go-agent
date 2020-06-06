@@ -47,7 +47,7 @@ type FilterMap map[string]Filter
 type FilterType interface {
 	// Create creates an instance of the described type. The actual type of the
 	// description depends on the FilterType and will be asserted.
-	Create(fm FilterMap, description interface{}) Filter
+	Create(fm FilterMap, description *FilterDescription) Filter
 	Name() string
 	WantsRequest() bool
 	WantsResponse() bool
@@ -56,7 +56,7 @@ type FilterType interface {
 
 type filterType struct {
 	name                        string
-	creator                     func(FilterMap, interface{}) Filter
+	creator                     func(FilterMap, *FilterDescription) Filter
 	wantsRequest, wantsResponse bool
 }
 
@@ -64,7 +64,7 @@ func (ft filterType) Name() string {
 	return ft.name
 }
 
-func (ft filterType) Create(fm FilterMap, description interface{}) Filter {
+func (ft filterType) Create(fm FilterMap, description *FilterDescription) Filter {
 	return ft.creator(fm, description)
 }
 
@@ -96,12 +96,11 @@ type Filter interface {
 	// SetMatcher assigns a specific Matcher instance to the filter.
 	// Passing a nil matcher will assign a filter-specific default Matcher.
 	SetMatcher(Matcher) error
-
 }
 
 var (
 	// NotFilterType describes NotFilter.
-	NotFilterType       FilterType = filterType{"NotFilter", notFilterFromDescription, true, true}
+	NotFilterType FilterType = filterType{"NotFilter", notFilterFromDescription, true, true}
 	// FilterSetFilterType describes the FilterSet.
 	FilterSetFilterType FilterType = filterType{"FilterSet", setFilterFromDescription, true, true}
 
@@ -109,17 +108,17 @@ var (
 	DomainFilterType FilterType = filterType{"DomainFilter", domainFilterFromDescription, true, false}
 
 	// HTTPMethodFilterType describes HTTPMethodFilter.
-	HTTPMethodFilterType     FilterType = filterType{"HttpMethodFilter", methodFilterFromDescription, true, false}
+	HTTPMethodFilterType FilterType = filterType{"HttpMethodFilter", methodFilterFromDescription, true, false}
 	// ParamFilterType describes ParamFilter.
-	ParamFilterType          FilterType = filterType{"ParamFilter", paramFilterFromDescription, true, false}
+	ParamFilterType FilterType = filterType{"ParamFilter", paramFilterFromDescription, true, false}
 	// PathFilterType describes PathFilter.
-	PathFilterType           FilterType = filterType{"PathFilter", pathFilterFromDescription, true, false}
+	PathFilterType FilterType = filterType{"PathFilter", pathFilterFromDescription, true, false}
 	// RequestHeadersFilterType describes RequestHeadersFilter.
 	RequestHeadersFilterType FilterType = filterType{"RequestHeadersFilter", requestFilterHeadersFromDescription, true, false}
 	// ResponseHeadersFilterType describes ResponseHeadersFilter.
 	ResponseHeadersFilterType FilterType = filterType{"ResponseHeadersFilter", responseHeadersFilterFromDescription, false, true}
 	// StatusCodeFilterType describes StatusCodeFilter.
-	StatusCodeFilterType      FilterType = filterType{"StatusCodeFilter", statusCodeFilterFromDescription, false, true}
+	StatusCodeFilterType FilterType = filterType{"StatusCodeFilter", statusCodeFilterFromDescription, false, true}
 
 	//RequestBodiesFilterType  FilterType = filterType{"RequestBodiesFilter", requestBodiesFilterFromDescription, true, false}
 	//ResponseBodiesFilterType FilterType = filterType{"ResponseBodiesFilter", responseBodiesFilterFromDescription, false, true}
@@ -127,6 +126,45 @@ var (
 	//ConnectionErrorFilterType FilterType = filterType{"ConnectionErrorFilter", connectionErrorFilterFromDescription, false, false}
 	yesInternalFilter FilterType = filterType{"YesFilter", nil, false, false}
 )
+
+// FilterTypeByName returns a FilterType instance for the passed name, or nil if
+// the name does not match an existing FilterType.
+func FilterTypeByName(name string) FilterType {
+	switch name {
+	case NotFilterType.Name():
+		return NotFilterType
+	case FilterSetFilterType.Name():
+		return FilterSetFilterType
+	case DomainFilterType.Name():
+		return DomainFilterType
+	case HTTPMethodFilterType.Name():
+		return HTTPMethodFilterType
+	case ParamFilterType.Name():
+		return ParamFilterType
+	case PathFilterType.Name():
+		return PathFilterType
+	case RequestHeadersFilterType.Name():
+		return RequestHeadersFilterType
+	case ResponseHeadersFilterType.Name():
+		return ResponseHeadersFilterType
+	case StatusCodeFilterType.Name():
+		return StatusCodeFilterType
+	case yesInternalFilter.Name():
+		return yesInternalFilter
+	default:
+		return nil
+	}
+}
+
+// NewFilterFromDescription creates a Filter instance from a FilterDescription.
+func NewFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
+	ft := FilterTypeByName(fd.TypeName)
+	if ft == nil {
+		return nil
+	}
+	f := ft.Create(filterMap, fd)
+	return f
+}
 
 // FilterDescription is a kind of "union type" describing all possible
 // fields returned by the config server, with TypeName acting as the discriminator.

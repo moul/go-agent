@@ -50,13 +50,9 @@ func (f *DomainFilter) SetMatcher(matcher Matcher) error {
 	return nil
 }
 
-func domainFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
-	rd, ok := d.(RegexpMatcherDescription)
-	if !ok {
-		return nil
-	}
+func domainFilterFromDescription(_ FilterMap, fd *FilterDescription) Filter {
 	f := &DomainFilter{}
-	err := f.SetMatcher(NewRegexpMatcher(rd.Value))
+	err := f.SetMatcher(NewRegexpMatcher(fd.Pattern.Value))
 	if err != nil {
 		return nil
 	}
