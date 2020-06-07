@@ -53,5 +53,5 @@ func main() {
 	}
 
 	examples.ShowGithubOrg(body)
-	time.Sleep(10 * time.Second)
+	time.Sleep(6 * time.Second)
 }

@@ -2,7 +2,13 @@ package interception
 
 //go:generate stringer -type=LogLevel -output log_level_names.go
 
-import "strings"
+import (
+	"net/http"
+	"strings"
+
+	"github.com/bearer/go-agent/filters"
+	"github.com/bearer/go-agent/proxy"
+)
 
 // LogLevelKey is the key in contexts where the current LogLevel may be found.
 const LogLevelKey = `BearerLogLevel`
@@ -43,5 +49,10 @@ func LogLevelFromString(s string) LogLevel {
 	default:
 		return Restricted
 	}
+}
+
+// Prepare extract the ReportLog information from the API call, depending on the LogLevel.
+func (ll *LogLevel) Prepare(stage filters.Stage, request *http.Request, response *http.Response, err error) proxy.ReportLog {
+	return proxy.ReportLog{}
 }
 

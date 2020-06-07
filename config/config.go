@@ -20,7 +20,7 @@ const (
 	SecretKeyName = `BEARER_SECRETKEY`
 
 	// DefaultRuntimeEnvironmentType is the default environment type.
-	DefaultRuntimeEnvironmentType = "default"
+	DefaultRuntimeEnvironmentType = "development" // "default"
 
 	// DefaultConfigEndpoint is the default configuration endpoint for Bearer.
 	DefaultConfigEndpoint = "https://config.bearer.sh/config"
@@ -29,8 +29,8 @@ const (
 	// asynchronously fetch configuration refreshes from Bearer.
 	DefaultConfigFetchInterval = 5 * time.Second
 
-	// DefaultReportHost is the default reporting host for Bearer.
-	DefaultReportHost = "agent.bearer.sh"
+	// DefaultReportEndpoint is the default reporting endpoint for Bearer.
+	DefaultReportEndpoint = "https://agent.bearer.sh/logs"
 
 	// DefaultReportOutstanding it the default maximum number of pending data
 	// collection writes in flight at any given time. When that limit is
@@ -63,8 +63,8 @@ type Config struct {
 	// Internal dev. options.
 	configEndpoint    string
 	fetchInterval     time.Duration
-	reportHost        string
-	reportOutstanding uint
+	ReportEndpoint    string
+	ReportOutstanding uint
 
 	// Internal runtime properties.
 	fetcher *Fetcher

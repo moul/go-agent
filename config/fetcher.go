@@ -2,13 +2,10 @@ package config
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"runtime"
 	"strings"
 	"time"
 
@@ -16,50 +13,14 @@ import (
 
 	"github.com/bearer/go-agent/filters"
 	"github.com/bearer/go-agent/interception"
+	"github.com/bearer/go-agent/proxy"
 )
 
 const (
 	// EOL is ASCII LF as a string.
 	EOL = "\n"
 
-	// ContentTypeHeader is the canonical content type header name.
-	ContentTypeHeader = `Content-Type`
-	// ContentTypeJSON is the canonical content type header value for JSON.
-	ContentTypeJSON = `application/json; charset=utf-8`
-
-	// HostUnknown is a reserved host name used when the Agent cannot obtain the
-	// client host name from the operating system.
-	HostUnknown = `unknown`
 )
-
-// RuntimeReport is the part of the Report describing the client runtime environment.
-type RuntimeReport struct {
-	Version  string `json:"version"`
-	Arch     string `json:"arch"`
-	Platform string `json:"platform"`
-	Type     string `json:"type"`
-	Hostname string `json:"hostname,omitempty"`
-}
-
-// AgentReport is the part of the Report describing the Agent code.
-type AgentReport struct {
-	Type    string `json:"type"`
-	Version string `json:"version"`
-}
-
-// ApplicationReport is the part of the Report describing the application
-// execution environment, like "development", "staging", or "production".
-type ApplicationReport struct {
-	Environment string `json:"environment"`
-}
-
-// Report is the information sent to the Bearer configuration server, describing
-// the current agent operating environment.
-type Report struct {
-	Runtime     RuntimeReport     `json:"runtime"`
-	Agent       AgentReport       `json:"agent"`
-	Application ApplicationReport `json:"application"`
-}
 
 // Description is a serialization-friendly description of the parts of Config
 // which may come from the config server.
@@ -220,29 +181,6 @@ func (d *Description) resolveDCRs(filterMap filters.FilterMap) ([]*interception.
 	return dcrs, nil
 }
 
-func makeConfigReport(version string) Report {
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = HostUnknown
-	}
-	return Report{
-		Runtime: RuntimeReport{
-			Version:  runtime.Version(),
-			Arch:     runtime.GOARCH,
-			Platform: runtime.GOOS,
-			Type:     runtime.GOOS,
-			Hostname: hostname,
-		},
-		Agent: AgentReport{
-			Type:    "go",
-			Version: version,
-		},
-		Application: ApplicationReport{
-			Environment: base64.URLEncoding.EncodeToString([]byte(strings.ToLower("de-zoom-ing"))),
-		},
-	}
-}
-
 // Fetcher describes the data used to perform the background configuration refresh.
 type Fetcher struct {
 	config    *Config
@@ -270,7 +208,7 @@ func NewFetcher(transport http.RoundTripper, logger *zerolog.Logger, version str
 // and ignored.
 func (f *Fetcher) Fetch() {
 	report := &bytes.Buffer{}
-	err := json.NewEncoder(report).Encode(makeConfigReport(f.version))
+	err := json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.config.runtimeEnvironmentType))
 	if err != nil {
 		f.logger.Warn().Msgf("building Bearer config report: %v", err)
 		return
@@ -281,9 +219,9 @@ func (f *Fetcher) Fetch() {
 		f.logger.Warn().Msgf("building Bearer remote config request: %v", err)
 		return
 	}
-	req.Header.Add("Accept", "application/json")
+	req.Header.Add(proxy.AcceptHeader, "application/json")
 	req.Header.Add("Authorization", f.config.secretKey)
-	req.Header.Set(ContentTypeHeader, ContentTypeJSON)
+	req.Header.Set(proxy.ContentTypeHeader, proxy.FullContentTypeJSON)
 
 	client := http.Client{Transport: f.transport}
 	res, err := client.Do(req)
