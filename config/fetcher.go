@@ -206,6 +206,19 @@ func (d Description) resolveHashes(descriptions map[string]*filters.FilterDescri
 	return res, nil
 }
 
+// resolveDCRs creates a slice of DataCollectionRule values from a resolved filters.FilterMap.
+func (d *Description) resolveDCRs(filterMap filters.FilterMap) ([]*DataCollectionRule, error) {
+	dcrs := make([]*DataCollectionRule, 0, len(d.DataCollectionRules))
+	for _, desc := range d.DataCollectionRules {
+		dcr := NewDCRFromDescription(filterMap, desc)
+		if dcr == nil {
+			continue
+		}
+		dcrs = append(dcrs, dcr)
+	}
+	return dcrs, nil
+}
+
 func makeConfigReport(version string) Report {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -312,7 +325,7 @@ func (f *Fetcher) Start() {
 			case <-f.done:
 				return
 			case <-f.ticker.C:
-				f.logger.Debug().Msgf(`Fetching`)
+				f.logger.Debug().Msgf(`Background config fetch`)
 				f.Fetch()
 			}
 		}

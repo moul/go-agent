@@ -55,7 +55,7 @@ type Config struct {
 	sensitiveKeys    []*regexp.Regexp
 
 	// Rules.
-	dataCollectionRules []DataCollectionRule
+	dataCollectionRules []*DataCollectionRule
 	Rules               []interface{} // XXX Agent spec defines the field but no use for it.
 	filters             filters.FilterMap
 
@@ -125,6 +125,13 @@ func (c *Config) UpdateFromDescription(description Description) {
 		return
 	}
 	c.filters = resolved
+
+	dcrs, err := description.resolveDCRs(resolved)
+	if err != nil {
+		c.logger.Warn().Err(err).Msg(`resolving data collection rules`)
+		return
+	}
+	c.dataCollectionRules = dcrs
 }
 
 // Option is the type use by functional options for configuration.

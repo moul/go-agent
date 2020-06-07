@@ -39,7 +39,7 @@ var OptionEnvironment Option = func(c *Config) error {
 }
 
 // WithDataCollectionRules is an Option configuring the data collection rules.
-func WithDataCollectionRules(dcrs []DataCollectionRule) Option {
+func WithDataCollectionRules(dcrs []*DataCollectionRule) Option {
 	return func(c *Config) error {
 		c.dataCollectionRules = dcrs
 		return nil
