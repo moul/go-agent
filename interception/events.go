@@ -1,6 +1,8 @@
 package interception
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -9,36 +11,56 @@ import (
 )
 
 const (
-	// Connect is the earliest event triggered in an intercepted API.
+	// TopicConnect is the earliest event triggered in an intercepted API.
 	// It is used to validate the endpoint URL, regardless of the Request which
 	// will be sent to it.
-	Connect events.Topic = "connect"
+	TopicConnect events.Topic = "connect"
 
-	// Request is the second event triggered in an intercepted API.
+	// TopicRequest is the second event triggered in an intercepted API.
 	// It is used to validate the Request itself, as well as its context.
-	Request events.Topic = "request"
+	TopicRequest events.Topic = "request"
 
-	// Response is the third event triggered in an intercepted API.
+	// TopicResponse is the third event triggered in an intercepted API.
 	// It is used to react to the response headers and possibly start of body
 	// being received. Note that at this point, there is no guarantee that either
 	// the Request or Response bodies are actually entirely available, due to
 	// HTTP advanced features like request/response interleaving. It is not
 	// triggered if the round-trip returns an error, as the associated response
 	// is not guaranteed to be well-formed.
-	Response events.Topic = "response"
+	TopicResponse events.Topic = "response"
 
-	// Bodies is the fourth and last event triggered in an intercepted API.
+	// TopicBodies is the fourth and last event triggered in an intercepted API.
 	// It is used once the bodies on both Request and Response have been closed
 	// by the API client. It does NOT mean that these bodies are necessarily
 	// complete, as a client may have closed a request early.
-	Bodies events.Topic = "bodies"
+	TopicBodies events.Topic = "bodies"
 )
 
-// ConnectEvent is the type of events dispatched at the Connect stage.
+// APIEvent is the type common to all API call lifecycle events.
+type APIEvent interface {
+	LogLevel() LogLevel
+	SetLogLevel(l LogLevel) APIEvent
+}
+type apiEvent struct {
+	events.EventBase
+	logLevel LogLevel
+}
+
+func (ae *apiEvent) LogLevel() LogLevel {
+	return ae.logLevel
+}
+
+func (ae *apiEvent) SetLogLevel(l LogLevel) APIEvent {
+	// Enforce value validation.
+	ae.logLevel = LogLevelFromInt(int(l))
+	return ae
+}
+
+// ConnectEvent is the type of events dispatched at the TopicConnect stage.
 //
 // Its Data() is a URL. Recommended use is to set the URL
 type ConnectEvent struct {
-	events.EventBase
+	apiEvent
 
 	// Host is the host to which the request is sent. It may be an IPv6 braced address.
 	Host string
@@ -50,60 +72,105 @@ type ConnectEvent struct {
 	Scheme string
 }
 
+// Request overrides the events.EventBase.Request method, building an on-the-fly
+// request from the event fields.
+func (re ConnectEvent) Request() *http.Request {
+	req, _ := http.NewRequest(``, (&url.URL{
+		Scheme: re.Scheme,
+		Host:   fmt.Sprintf(`%s:%d`, re.Host, re.Port),
+	}).String(), nil)
+	return req
+}
+
 // Topic is part of the Event interface.
 func (re ConnectEvent) Topic() events.Topic {
-	return Connect
+	return TopicConnect
 }
 
 // NewConnectEvent builds a ConnectEvent for a url.URL.
 func NewConnectEvent(url *url.URL) *ConnectEvent {
 	e := &ConnectEvent{}
-	e.WithTopic(string(Connect))
 	e.SetData(url)
 	return e
 }
 
-// RequestEvent is the type of events dispatched at the Request stages.
+// RequestEvent is the type of events dispatched at the TopicRequest stages.
 type RequestEvent struct {
-	events.EventBase
-
-	// Request is the Request being transferred to the API endpoint.
-	Request *http.Request
+	apiEvent
 }
 
 // Topic is part of the Event interface.
 func (re RequestEvent) Topic() events.Topic {
-	return Request
+	return TopicRequest
 }
 
-// NewRequestEvent builds a RequestEvent for a *http.Request.
-func NewRequestEvent(r *http.Request) *RequestEvent {
-	e := &RequestEvent{}
-	e.WithTopic(string(Request))
-	e.SetData(r)
-	return e
-}
-
-// ResponseEvent is the type of events dispatched at the Response stage.
+// ResponseEvent is the type of events dispatched at the TopicResponse stage.
 type ResponseEvent struct {
-	events.EventBase
-	Response *http.Response
+	apiEvent
 }
 
 // Topic is part of the Event interface.
 func (ResponseEvent) Topic() events.Topic {
-	return Response
+	return TopicResponse
 
 }
 
-// BodiesEvent is the type of events dispatched at the Bodies stage.
+// BodiesEvent is the type of events dispatched at the TopicBodies stage.
 type BodiesEvent struct {
-	events.EventBase
+	apiEvent
 
 	RequestBody, ResponseBody io.ReadCloser
 }
 
 // Topic is part of the Event interface.
 func (BodiesEvent) Topic() events.Topic {
-	return Bodies
+	return TopicBodies
 }
+
+// DCRProvider is an events.Listener provider returning listeners based on the
+// active data collection rules.
+type DCRProvider struct {
+	DCRs []*DataCollectionRule
+}
+
+// Listeners implements the events.ListenerProvider interface.
+func (p DCRProvider) Listeners(e events.Event) []events.Listener {
+	switch e.Topic() {
+	case TopicConnect, TopicRequest, TopicResponse, TopicBodies:
+		return []events.Listener{func(ctx context.Context, e events.Event) error {
+			var logLevel LogLevel
+			ae, ok := e.(APIEvent)
+			if !ok {
+				return fmt.Errorf("topic %s used with non-APIEvent type %T", e.Topic(), e)
+			}
+			logLevel = ae.LogLevel()
+			original := logLevel
+			for _, dcr := range p.DCRs {
+				// Maximum LogLevel reached: no need to check more rules.
+				if logLevel == All {
+					break
+				}
+				// Rule won't allow more logging, just skip it.
+				if dcr.LogLevel <= logLevel {
+					continue
+				}
+				// No filter: just apply the rule logLevel without running it
+				if dcr.Filter == nil {
+					logLevel = dcr.LogLevel
+					continue
+				}
+				// Rule may increase logLevel if it matches: run it.
+				if dcr.MatchesCall(e.Request(), e.Response()) {
+					logLevel = dcr.LogLevel
+				}
+			}
+			if logLevel != original {
+				ae.SetLogLevel(logLevel)
+			}
+			return nil
+		}}
+	default:
+		return nil
+	}
+}
+

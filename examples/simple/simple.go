@@ -52,6 +52,6 @@ func main() {
 		log.Fatalf("reading API response: %v", err)
 	}
 
-	examples.ShowOrg(body)
+	examples.ShowGithubOrg(body)
 	time.Sleep(10 * time.Second)
 }

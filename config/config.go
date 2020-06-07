@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/bearer/go-agent/filters"
+	"github.com/bearer/go-agent/interception"
 )
 
 const (
@@ -55,7 +56,7 @@ type Config struct {
 	sensitiveKeys    []*regexp.Regexp
 
 	// Rules.
-	dataCollectionRules []*DataCollectionRule
+	dataCollectionRules []*interception.DataCollectionRule
 	Rules               []interface{} // XXX Agent spec defines the field but no use for it.
 	filters             filters.FilterMap
 
@@ -132,6 +133,11 @@ func (c *Config) UpdateFromDescription(description Description) {
 		return
 	}
 	c.dataCollectionRules = dcrs
+}
+
+// DataCollectionRules returns the active DataCollectionRule instances.
+func (c *Config) DataCollectionRules() []*interception.DataCollectionRule {
+	return c.dataCollectionRules
 }
 
 // Option is the type use by functional options for configuration.

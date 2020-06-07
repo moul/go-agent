@@ -58,9 +58,11 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 	}
 	a.config = c
 
-	a.Dispatcher.AddProviders(interception.Connect,
-		events.ListenerProviderFunc(a.Provider),
-	)
+	dcrp := interception.DCRProvider{DCRs: a.config.DataCollectionRules()}
+	a.Dispatcher.AddProviders(interception.TopicConnect, events.ListenerProviderFunc(a.Provider), dcrp)
+	a.Dispatcher.AddProviders(interception.TopicRequest, dcrp)
+	a.Dispatcher.AddProviders(interception.TopicResponse, dcrp)
+	a.Dispatcher.AddProviders(interception.TopicBodies, dcrp)
 	return &a, nil
 }
 
@@ -77,7 +79,6 @@ func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
 	}
 	return &interception.RoundTripper{
 		Dispatcher: a.Dispatcher,
-		Config:     a.config,
 		Underlying: rt,
 	}
 }
@@ -143,13 +144,15 @@ func Init(secretKey string, clients ...*http.Client) func() error {
 }
 
 // Provider provides the default agent listeners:
-//   - Connect: RFCListener, validating URL under RFC grammars.
-//   - Request, Response, Bodies: none yet.
+//   - TopicConnect: RFCListener, validating URL under RFC grammars.
+//   - TopicRequest, TopicResponse, TopicBodies: no.
 func (a *Agent) Provider(e events.Event) []events.Listener {
 	var l []events.Listener
-	switch e.Topic() {
-	case interception.Connect:
-		l = []events.Listener{interception.RFCListener}
+	switch topic := e.Topic(); topic {
+	case interception.TopicConnect:
+		l = []events.Listener{
+			interception.RFCListener,
+		}
 	default:
 		// TODO define and implement other build-in listeners, e.g DataCollectionListener.
 	}

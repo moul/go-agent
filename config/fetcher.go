@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/bearer/go-agent/filters"
+	"github.com/bearer/go-agent/interception"
 )
 
 const (
@@ -63,7 +64,7 @@ type Report struct {
 // Description is a serialization-friendly description of the parts of Config
 // which may come from the config server.
 type Description struct {
-	DataCollectionRules []DataCollectionRuleDescription
+	DataCollectionRules []interception.DataCollectionRuleDescription
 	Filters             map[string]filters.FilterDescription
 	Rules               []struct {
 		FilterHash   string
@@ -207,10 +208,10 @@ func (d Description) resolveHashes(descriptions map[string]*filters.FilterDescri
 }
 
 // resolveDCRs creates a slice of DataCollectionRule values from a resolved filters.FilterMap.
-func (d *Description) resolveDCRs(filterMap filters.FilterMap) ([]*DataCollectionRule, error) {
-	dcrs := make([]*DataCollectionRule, 0, len(d.DataCollectionRules))
+func (d *Description) resolveDCRs(filterMap filters.FilterMap) ([]*interception.DataCollectionRule, error) {
+	dcrs := make([]*interception.DataCollectionRule, 0, len(d.DataCollectionRules))
 	for _, desc := range d.DataCollectionRules {
-		dcr := NewDCRFromDescription(filterMap, desc)
+		dcr := interception.NewDCRFromDescription(filterMap, desc)
 		if dcr == nil {
 			continue
 		}

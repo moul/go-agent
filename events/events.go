@@ -5,6 +5,7 @@
 package events
 
 import (
+	"net/http"
 	"regexp"
 )
 
@@ -20,6 +21,9 @@ type Event interface {
 	// and use the typed getters accordingly.
 	Data() interface{}
 
+	Request()  *http.Request
+	Response() *http.Response
+
 	// SetData is a setter for the data returned by Data.
 	SetData(interface{}) Event
 }
@@ -29,11 +33,35 @@ type Event interface {
 type EventBase struct {
 	data  interface{}
 	topic Topic
+	request *http.Request
+	response *http.Response
 }
 
 // Data is part of the Event interface.
 func (eb *EventBase) Data() interface{} {
 	return eb.data
+}
+
+// Request returns the http.Request in the event, which may be nil.
+func (eb *EventBase) Request() *http.Request {
+	return eb.request
+}
+
+// SetRequest set the http.Request in the event, which may be nil.
+func (eb *EventBase) SetRequest(r *http.Request) *EventBase {
+	eb.request = r
+	return eb
+}
+
+// Response returns the http.Response in the event, which may be nil.
+func (eb *EventBase) Response() *http.Response {
+	return eb.response
+}
+
+// SetResponse set the http.Response in the event, which may be nil.
+func (eb *EventBase) SetResponse(r *http.Response) *EventBase {
+	eb.response = r
+	return eb
 }
 
 // SetData is part of the Event interface.

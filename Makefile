@@ -1,7 +1,7 @@
 
-generate: config/data_collection_rules_names.go filters/set_names.go
+generate: interception/log_level_names.go filters/set_names.go
 
-config/data_collection_rules_names.go: config/data_collection_rules.go
+interception/log_level_names.go: interception/log_level.go
 	go generate ./...
 
 filters/set_names.go: filters/set.go
