@@ -4,13 +4,10 @@ package interception
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
+	"encoding/hex"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/bearer/go-agent/filters"
 	"github.com/bearer/go-agent/proxy"
 )
 
@@ -56,8 +53,12 @@ func LogLevelFromString(s string) LogLevel {
 }
 
 // Prepare extract the ReportLog information from the API call, depending on the LogLevel.
-func (ll *LogLevel) Prepare(stage filters.Stage, request *http.Request, response *http.Response, err error) proxy.ReportLog {
-	if request == nil {
+func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
+	request := re.Request()
+	response := re.Response()
+	err := re.Error
+
+	if re.Request() == nil {
 		request, _ = http.NewRequest(``, ``, nil)
 	}
 	u := request.URL
@@ -75,8 +76,6 @@ func (ll *LogLevel) Prepare(stage filters.Stage, request *http.Request, response
 		errorMessage = errorCode
 	}
 
-	startedAt := strconv.Itoa(int((time.Now().Add(- 1 * time.Second)).UnixNano() / 1E6))
-	endedAt := strconv.Itoa(int(time.Now().UnixNano() / 1E6))
 	rl := proxy.ReportLog{
 		LogLevel: strings.ToUpper(ll.String()),
 		Port:     port,
@@ -85,9 +84,9 @@ func (ll *LogLevel) Prepare(stage filters.Stage, request *http.Request, response
 	}
 
 	if *ll >= Restricted {
-		rl.StartedAt = startedAt
-		rl.EndedAt = endedAt
-		rl.Stage = stage
+		rl.StartedAt = int(re.T0.UnixNano() / 1E6)
+		rl.EndedAt = int(re.T1.UnixNano() / 1E6)
+		rl.Stage = re.Stage
 		rl.ActiveDataCollectionRules = []string{}
 		rl.Path = u.Path
 		rl.Method = request.Method
@@ -101,7 +100,7 @@ func (ll *LogLevel) Prepare(stage filters.Stage, request *http.Request, response
 		if err != nil {
 			rl.Type = proxy.Error
 		} else {
-			rl.Type = proxy.Success
+			rl.Type = proxy.End
 		}
 
 	}
@@ -111,17 +110,11 @@ func (ll *LogLevel) Prepare(stage filters.Stage, request *http.Request, response
 		rl.RequestBody = ``
 		rl.ResponseBody = ``
 
-		b := strings.Builder{}
-		encoder := base64.NewEncoder(base64.StdEncoding, &b)
 		reqSha := sha256.Sum256([]byte(rl.RequestBody))
-		_, _ = encoder.Write(reqSha[:])
-		rl.RequestBodyPayloadSHA = b.String()
+		rl.RequestBodyPayloadSHA = hex.EncodeToString(reqSha[:])
 
-		b = strings.Builder{}
-		encoder = base64.NewEncoder(base64.StdEncoding, &b)
 		resSha := sha256.Sum256([]byte(rl.ResponseBody))
-		_, _ = encoder.Write(resSha[:])
-		rl.ResponseBodyPayloadSHA = b.String()
+		rl.ResponseBodyPayloadSHA = hex.EncodeToString(resSha[:])
 	}
 	return rl
 }

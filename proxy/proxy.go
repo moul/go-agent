@@ -22,8 +22,8 @@ const (
 	// FanInBacklog is the capacity of the fan-in log write channel
 	FanInBacklog = 100
 
-	// Success is the ReportLog Type for successful API calls.
-	Success = `REQUEST_SUCCESS`
+	// End is the ReportLog Type for successful API calls.
+	End = `REQUEST_END`
 	// Error is the ReportLog Type for failed API calls.
 	Error = `REQUEST_ERROR`
 	// Loss is the ReportLog Type for synthetic reports warning of reports loss.
@@ -84,6 +84,9 @@ type Sender struct {
 	// Lost is the number of lost and never sent ReportLog elements. It is reset
 	// to 0 when transmission resumes.
 	Lost uint
+
+	// Counter is the total number of records handled.
+	Counter uint
 
 	// Configuration fields below.
 
@@ -163,12 +166,12 @@ Normal:
 		select {
 		// Finish received: switch to Finishing mode.
 		case <-s.Finish:
-			s.Logger.Debug().Msg("Sender switching to Finishing mode.")
+			s.Logger.Debug().Msgf("Sender switching to Finishing mode at counter %d.", s.Counter)
 			break Normal
 
 		// ReportLog to write.
 		case rl := <-s.FanIn:
-			s.Logger.Debug().Msg("Sender received log to send.")
+			// s.Logger.Debug().Msg("Sender received log to send.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
 				continue
@@ -178,14 +181,15 @@ Normal:
 
 		// Acknowledgment of ReportLog written.
 		case n := <-s.Acks:
-			s.Logger.Debug().Msg("Sender received ack.")
+			// s.Logger.Debug().Msg("Sender received ack.")
 			if n == 0 {
-				s.Error().Msg("received an acknowledgment for 0 report")
+				s.Error().Msgf("received an acknowledgment for 0 report at counter %d", s.Counter)
 				continue
 			}
 			if n > s.InFlight {
 				// This should never happen, except for bugs.
-				s.Error().Msgf(`%d reports acknowledged, but only %d were in flight`, n, s.InFlight)
+				s.Error().Msgf(`%d reports acknowledged at counter %d, but only %d were in flight`,
+					n, s.Counter, s.InFlight)
 				n = s.InFlight
 			}
 			// First window of opportunity to transmit a loss report.
@@ -203,7 +207,7 @@ Normal:
 		select {
 		// ReportLog to write. Same as normal operation.
 		case rl := <-s.FanIn:
-			s.Logger.Debug().Msg("Finishing sender received log.")
+			// s.Logger.Debug().Msg("Finishing sender received log.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
 				continue
@@ -212,7 +216,7 @@ Normal:
 			go s.WriteLog(rl)
 
 		case n := <-s.Acks:
-			s.Logger.Debug().Msg("Finishing sender received ack.")
+			// s.Logger.Debug().Msg("Finishing sender received ack.")
 			if n == 0 {
 				s.Error().Msg("received an acknowledgment in finishing phase but for 0 report")
 				continue
@@ -240,8 +244,10 @@ Normal:
 // it finished its attempt, whether it succeeded or not.
 func (s *Sender) WriteLog(rl ReportLog) {
 	defer func() {
+		var n uint = 1
 		// The attempt was made, the request is no longer outstanding even if it failed.
-		s.Acks <- 1
+		s.Acks <- n
+		s.Counter += n
 	}()
 
 	lr := MakeConfigReport(s.Version, s.EnvironmentType, s.SecretKey)
@@ -265,13 +271,17 @@ func (s *Sender) WriteLog(rl ReportLog) {
 	res, err := s.Client.Do(req)
 
 	if err != nil {
-		s.Warn().Err(err).Msg(`transmitting logs to the report server.`)
+		s.Warn().Err(err).Msgf(`transmitting log %d to the report server.`, s.Counter)
 	} else {
 		if !OKResponseMatcher.Matches(res.StatusCode) {
-			s.Warn().RawJSON("report", body).Msgf(`got response %d %s transmitting logs to the report server.`, res.StatusCode, res.Status)
+			s.Warn().RawJSON("report", body).Msgf(`got response %d %s transmitting log %d to the report server.`, res.StatusCode, res.Status, s.Counter)
 			return
 		}
-		s.Debug().Int("statuscode", res.StatusCode).Str("status", res.Status).RawJSON("report", body).Send()
+		s.Debug().
+			Uint("reportId", s.Counter).
+			Str("status", res.Status).
+			RawJSON("report", body).
+			Send()
 	}
 }
 
@@ -291,10 +301,10 @@ type ReportLog struct {
 
 	// Common, except for Detected level.
 
-	StartedAt                 string `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
-	EndedAt                   string `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
+	StartedAt                 int    `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
+	EndedAt                   int    `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
 	Type                      string `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
-	filters.Stage             `json:"stage,omitempty"`
+	filters.Stage             `json:"stageType,omitempty"`
 	ActiveDataCollectionRules []string `json:"activeDataCollectionRules,omitempty"` // More compact than sending the complete rule.
 
 	// filters.StageConnect

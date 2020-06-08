@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/filters"
@@ -128,44 +129,49 @@ func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, re
 func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	var logLevel LogLevel
 	var err error
+	var e *ReportEvent
 	ctx := request.Context()
+	t0 := time.Now()
+	defer func() {
+		e.T0 = t0
+		e.T1 = time.Now()
+		_, _ = rt.Dispatch(ctx, e)
+	}()
 
 	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
-		e := &ReportEvent{
+		e = &ReportEvent{
 			apiEvent: apiEvent{
 				EventBase: *(&events.EventBase{}).SetRequest(request),
 				logLevel:  logLevel,
 			},
-			Stage:    filters.StageConnect,
-			Error:    err,
+			Stage: filters.StageConnect,
+			Error: err,
 		}
-		_, _ = rt.Dispatch(ctx, e)
 		return nil, err
 	}
 
 	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
-		e := &ReportEvent{
+		e = &ReportEvent{
 			apiEvent: apiEvent{
 				EventBase: *(&events.EventBase{}).SetRequest(request),
 				logLevel:  logLevel,
 			},
-			Stage:    filters.StageRequest,
-			Error:    err,
+			Stage: filters.StageRequest,
+			Error: err,
 		}
-		_, _ = rt.Dispatch(ctx, e)
 		return nil, err
 	}
 
 	response, err := rt.Underlying.RoundTrip(request)
 	_, err = rt.stageResponse(ctx, logLevel, request, response, err)
-	e := &ReportEvent{
+	e = &ReportEvent{
 		apiEvent: apiEvent{
 			EventBase: *(&events.EventBase{}).SetRequest(request).SetResponse(response),
 			logLevel:  logLevel,
 		},
-		Stage:    filters.StageResponse,
-		Error:    err,
+		Stage: filters.StageResponse,
+		Error: err,
 	}
-	_, _ = rt.Dispatch(ctx, e)
+
 	return response, err
 }

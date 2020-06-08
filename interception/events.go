@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/filters"
@@ -139,7 +140,8 @@ func (BodiesEvent) Topic() events.Topic {
 type ReportEvent struct {
 	apiEvent
 	filters.Stage
-	Error error
+	Error  error
+	T0, T1 time.Time
 }
 
 // Topic is part of the Event interface.
@@ -210,7 +212,7 @@ func (p ProxyProvider) Listeners(e events.Event) []events.Listener {
 			return fmt.Errorf("topic %s used with event type %T", e.Topic(), e)
 		}
 		ll := re.LogLevel()
-		rl := ll.Prepare(re.Stage, re.Request(), re.Response(), re.Error)
+		rl := ll.Prepare(re)
 		p.Send(rl)
 		return nil
 	}
