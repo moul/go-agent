@@ -208,7 +208,7 @@ func NewFetcher(transport http.RoundTripper, logger *zerolog.Logger, version str
 // and ignored.
 func (f *Fetcher) Fetch() {
 	report := &bytes.Buffer{}
-	err := json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.config.runtimeEnvironmentType))
+	err := json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.config.runtimeEnvironmentType, f.config.secretKey))
 	if err != nil {
 		f.logger.Warn().Msgf("building Bearer config report: %v", err)
 		return

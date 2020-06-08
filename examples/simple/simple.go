@@ -35,23 +35,25 @@ func main() {
 	//
 	// The client will trigger monitoring for the request parameters, and the
 	// request and response headers.
-	res, err := http.Get(examples.APIURL)
-	if err != nil {
-		log.Fatalf("calling %s: %v", examples.APIURL, err)
-	}
+	for i := 0; i < 10; i++ {
+		res, err := http.Get(examples.APIURL)
+		if err != nil {
+			log.Fatalf("calling %s: %v", examples.APIURL, err)
+		}
 
-	// Step 3: use the standard response body as usual.
-	//
-	// The response Body is decorated by a monitoring mechanism tracking the API
-	// request and response bodies: since go supports fully multiplexed HTTP and
-	// HTTP/2, the request body may not be entirely available when the request
-	// starts, but only when the response ends.
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Fatalf("reading API response: %v", err)
-	}
+		// Step 3: use the standard response body as usual.
+		//
+		// The response Body is decorated by a monitoring mechanism tracking the API
+		// request and response bodies: since go supports fully multiplexed HTTP and
+		// HTTP/2, the request body may not be entirely available when the request
+		// starts, but only when the response ends.
+		defer res.Body.Close()
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Fatalf("reading API response: %v", err)
+		}
 
-	examples.ShowGithubOrg(body)
-	time.Sleep(6 * time.Second)
+		examples.ShowGithubOrg(body)
+		time.Sleep(3 * time.Second)
+	}
 }

@@ -51,12 +51,12 @@ func RFCListener(_ context.Context, e events.Event) error {
 	sPort := url.Port()
 	if sPort == `` {
 		// Cf. Go runtime: src/net/http/transport.go
-		portMap := map[string]string{
+		PortMap := map[string]string{
 			"http":   "80",
 			"https":  "443",
 			"socks5": "1080",
 		}
-		sPort, ok = portMap[ce.Scheme]
+		sPort, ok = PortMap[ce.Scheme]
 		if !ok {
 			return fmt.Errorf("ill-formed port specification in Host [%s]", url.Host)
 		}

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/rs/zerolog"
 
@@ -42,6 +41,9 @@ const (
 	// FullContentTypeJSON is the content type for JSON when emitting it.
 	FullContentTypeJSON = `application/json; charset=utf-8`
 )
+
+// OKResponseMatcher validates an integer value as a successful HTTP request status.
+var OKResponseMatcher = filters.NewRangeMatcher().From(100).To(400).ExcludeTo()
 
 // MustParseURL builds a URL instance from a known-good URL string, panicking it
 // the URL string is not well-formed.
@@ -158,7 +160,6 @@ func (s *Sender) Start() {
 	// Normal operation.
 Normal:
 	for {
-		s.Logger.Debug().Msg("Proxy loop")
 		select {
 		// Finish received: switch to Finishing mode.
 		case <-s.Finish:
@@ -167,7 +168,7 @@ Normal:
 
 		// ReportLog to write.
 		case rl := <-s.FanIn:
-			s.Logger.Debug().Msg("Sender received log.")
+			s.Logger.Debug().Msg("Sender received log to send.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
 				continue
@@ -243,7 +244,7 @@ func (s *Sender) WriteLog(rl ReportLog) {
 		s.Acks <- 1
 	}()
 
-	lr := MakeConfigReport(s.Version, s.EnvironmentType)
+	lr := MakeConfigReport(s.Version, s.EnvironmentType, s.SecretKey)
 	lr.SecretKey = s.SecretKey
 	lr.Logs = []ReportLog{rl}
 
@@ -261,12 +262,16 @@ func (s *Sender) WriteLog(rl ReportLog) {
 	}
 	req.Header.Add(AcceptHeader, ContentTypeJSON)
 	req.Header.Set(ContentTypeHeader, FullContentTypeJSON)
-	_, err = s.Client.Do(req)
+	res, err := s.Client.Do(req)
 
 	if err != nil {
 		s.Warn().Err(err).Msg(`transmitting logs to the report server.`)
 	} else {
-		s.Debug().RawJSON("report", body).Msg("Log uploaded")
+		if !OKResponseMatcher.Matches(res.StatusCode) {
+			s.Warn().RawJSON("report", body).Msgf(`got response %d %s transmitting logs to the report server.`, res.StatusCode, res.Status)
+			return
+		}
+		s.Debug().Int("statuscode", res.StatusCode).Str("status", res.Status).RawJSON("report", body).Send()
 	}
 }
 
@@ -282,41 +287,42 @@ func NewReportLossReport(n uint) ReportLog {
 
 // ReportLog is the report summarizing an API call.
 type ReportLog struct {
-	LogLevel string
+	LogLevel string `json:"logLevel"`
 
 	// Common, except for Detected level.
 
-	StartedAt, EndedAt time.Time
-	Type               string // REQUEST_END on success, REQUEST_ERROR on connection errors
-	filters.Stage
-	ActiveDataCollectionRules []string // More compact than sending the complete rule.
+	StartedAt                 string `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
+	EndedAt                   string `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
+	Type                      string `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
+	filters.Stage             `json:"stage,omitempty"`
+	ActiveDataCollectionRules []string `json:"activeDataCollectionRules,omitempty"` // More compact than sending the complete rule.
 
 	// filters.StageConnect
 
-	Port     uint16
-	Protocol string // Scheme: http[s]
-	Hostname string
+	Port     uint16 `json:"port"`
+	Protocol string `json:"protocol"` // Scheme: http[s]
+	Hostname string `json:"hostname"`
 
 	// filters.StageRequest
 
-	Path           string
-	Method         string
-	URL            string
-	RequestHeaders http.Header
+	Path           string      `json:"path,omitempty"`
+	Method         string      `json:"method,omitempty"`
+	URL            string      `json:"url,omitempty"`
+	RequestHeaders http.Header `json:"requestHeaders"`
 
 	// filters.StageResponse
 
-	ResponseHeaders http.Header
-	StatusCode      int
+	ResponseHeaders http.Header `json:"responseHeaders"`
+	StatusCode      int         `json:"statusCode,omitempty"`
 
-	// filters.StageBodies
-	RequestBody  []byte
-	ResponseBody []byte
+	// filters.StageBodies. Note that these 4 may very well NOT be valid strings.
+	RequestBody  string `json:"requestBody"`
+	ResponseBody string `json:"responseBody"`
 	// Payload SHAs
-	RequestBodyPayloadSHA  []byte
-	ResponseBodyPayloadSHA []byte
+	RequestBodyPayloadSHA  string `json:"requestBodyPayloadSha"`
+	ResponseBodyPayloadSHA string `json:"responseBodyPayloadSha"`
 
 	// Error
-	ErrorCode        string
-	ErrorFullMessage string
+	ErrorCode        string `json:"errorCode,omitempty"`
+	ErrorFullMessage string `json:"errorFullMessage,omitempty"`
 }
