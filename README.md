@@ -138,5 +138,7 @@ This project is published under the Apache 2.0 License - see the [LICENSE](LICEN
     
         All brand and product names mentioned in this document are trademarks or
         registered trademarks of their respective holders.
-
+- The well-formed invalid credit card numbers used for sensitive data validation
+  were provided by https://www.freeformatter.com/credit-card-number-generator-validator.html
+  
 [article by Ferry Boender]: https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html

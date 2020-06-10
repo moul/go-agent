@@ -35,7 +35,8 @@ func main() {
 	//
 	// The client will trigger monitoring for the request parameters, and the
 	// request and response headers.
-	for i := 0; i < 10; i++ {
+	examples.APIURL = `https://code.osinet.fr/api/v1/orgs/OSInet?a=a11&a=a12&b=2&password=secret&foo=her+email+is+jane.doe@example.com&card=4539530418912307`
+	for i := 0; i < 1; i++ {
 		res, err := http.Get(examples.APIURL)
 		if err != nil {
 			log.Fatalf("calling %s: %v", examples.APIURL, err)
@@ -53,7 +54,7 @@ func main() {
 			log.Fatalf("reading API response: %v", err)
 		}
 
-		examples.ShowGithubOrg(body)
+		examples.ShowGogsOrg(body)
 		time.Sleep(700 * time.Millisecond)
 	}
 }

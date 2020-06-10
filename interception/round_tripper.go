@@ -141,24 +141,26 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
 		e = &ReportEvent{
 			apiEvent: apiEvent{
-				EventBase: *(&events.EventBase{}).SetRequest(request),
+				EventBase: events.EventBase{},
 				logLevel:  logLevel,
 			},
 			Stage: proxy.StageConnect,
 			Error: err,
 		}
+		e.apiEvent.SetRequest(request)
 		return nil, err
 	}
 
 	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
 		e = &ReportEvent{
 			apiEvent: apiEvent{
-				EventBase: *(&events.EventBase{}).SetRequest(request),
+				EventBase: events.EventBase{},
 				logLevel:  logLevel,
 			},
 			Stage: proxy.StageRequest,
 			Error: err,
 		}
+		e.apiEvent.EventBase.SetRequest(request)
 		return nil, err
 	}
 
@@ -166,12 +168,13 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	_, err = rt.stageResponse(ctx, logLevel, request, response, err)
 	e = &ReportEvent{
 		apiEvent: apiEvent{
-			EventBase: *(&events.EventBase{}).SetRequest(request).SetResponse(response),
+			EventBase: events.EventBase{},
 			logLevel:  logLevel,
 		},
 		Stage: proxy.StageResponse,
 		Error: err,
 	}
+	e.SetRequest(request).SetResponse(response)
 
 	return response, err
 }

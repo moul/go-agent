@@ -26,6 +26,10 @@ type Event interface {
 
 	// SetData is a setter for the data returned by Data.
 	SetData(interface{}) Event
+	// SetRequest is a setter for the event request, returning the event.
+	SetRequest(r *http.Request) Event
+	// SetResponse is a setter for the event response, returning the event.
+	SetResponse(r *http.Response) Event
 }
 
 // EventBase is a basic event implementation, meant to be composed into actual
@@ -48,7 +52,7 @@ func (eb *EventBase) Request() *http.Request {
 }
 
 // SetRequest set the http.Request in the event, which may be nil.
-func (eb *EventBase) SetRequest(r *http.Request) *EventBase {
+func (eb *EventBase) SetRequest(r *http.Request) Event {
 	eb.request = r
 	return eb
 }
@@ -59,7 +63,7 @@ func (eb *EventBase) Response() *http.Response {
 }
 
 // SetResponse set the http.Response in the event, which may be nil.
-func (eb *EventBase) SetResponse(r *http.Response) *EventBase {
+func (eb *EventBase) SetResponse(r *http.Response) Event {
 	eb.response = r
 	return eb
 }
