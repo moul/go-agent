@@ -11,9 +11,6 @@ import (
 	"strconv"
 
 	"github.com/rs/zerolog"
-
-	"github.com/bearer/go-agent/events"
-	"github.com/bearer/go-agent/filters"
 )
 
 const (
@@ -41,9 +38,6 @@ const (
 	// FullContentTypeJSON is the content type for JSON when emitting it.
 	FullContentTypeJSON = `application/json; charset=utf-8`
 )
-
-// OKResponseMatcher validates an integer value as a successful HTTP request status.
-var OKResponseMatcher = filters.NewRangeMatcher().From(100).To(400).ExcludeTo()
 
 // MustParseURL builds a URL instance from a known-good URL string, panicking it
 // the URL string is not well-formed.
@@ -109,7 +103,6 @@ type Sender struct {
 	Version string
 
 	http.Client
-	events.Dispatcher
 	*zerolog.Logger
 }
 
@@ -123,7 +116,7 @@ func (s *Sender) Stop() {
 // NewSender builds a ready-to-user
 func NewSender(
 	limit uint, endPoint string, version string, secretKey string, environmentType string,
-	transport http.RoundTripper, dispatcher events.Dispatcher, logger *zerolog.Logger,
+	transport http.RoundTripper, logger *zerolog.Logger,
 ) *Sender {
 	s := Sender{
 		Finish:          make(chan bool, 1),
@@ -136,7 +129,6 @@ func NewSender(
 		SecretKey:       secretKey,
 		Version:         version,
 		Client:          http.Client{Transport: transport},
-		Dispatcher:      dispatcher,
 		Logger:          logger,
 	}
 	return &s
@@ -171,7 +163,7 @@ Normal:
 
 		// ReportLog to write.
 		case rl := <-s.FanIn:
-			// s.Logger.Debug().Msg("Sender received log to send.")
+			s.Logger.Debug().Msg("Sender received log to send.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
 				continue
@@ -181,7 +173,7 @@ Normal:
 
 		// Acknowledgment of ReportLog written.
 		case n := <-s.Acks:
-			// s.Logger.Debug().Msg("Sender received ack.")
+			s.Logger.Debug().Msg("Sender received ack.")
 			if n == 0 {
 				s.Error().Msgf("received an acknowledgment for 0 report at counter %d", s.Counter)
 				continue
@@ -207,7 +199,7 @@ Normal:
 		select {
 		// ReportLog to write. Same as normal operation.
 		case rl := <-s.FanIn:
-			// s.Logger.Debug().Msg("Finishing sender received log.")
+			s.Logger.Debug().Msg("Finishing sender received log.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
 				continue
@@ -216,7 +208,7 @@ Normal:
 			go s.WriteLog(rl)
 
 		case n := <-s.Acks:
-			// s.Logger.Debug().Msg("Finishing sender received ack.")
+			s.Logger.Debug().Msg("Finishing sender received ack.")
 			if n == 0 {
 				s.Error().Msg("received an acknowledgment in finishing phase but for 0 report")
 				continue
@@ -273,7 +265,7 @@ func (s *Sender) WriteLog(rl ReportLog) {
 	if err != nil {
 		s.Warn().Err(err).Msgf(`transmitting log %d to the report server.`, s.Counter)
 	} else {
-		if !OKResponseMatcher.Matches(res.StatusCode) {
+		if res.StatusCode < http.StatusContinue || res.StatusCode >= http.StatusBadRequest {
 			s.Warn().RawJSON("report", body).Msgf(`got response %d %s transmitting log %d to the report server.`, res.StatusCode, res.Status, s.Counter)
 			return
 		}
@@ -289,7 +281,7 @@ func (s *Sender) WriteLog(rl ReportLog) {
 func NewReportLossReport(n uint) ReportLog {
 	return ReportLog{
 		Type:             Loss,
-		Stage:            filters.StageUndefined,
+		Stage:            StageUndefined,
 		ErrorCode:        strconv.Itoa(int(n)),
 		ErrorFullMessage: fmt.Sprintf("%d report logs were logs", n),
 	}
@@ -301,10 +293,10 @@ type ReportLog struct {
 
 	// Common, except for Detected level.
 
-	StartedAt                 int    `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
-	EndedAt                   int    `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
-	Type                      string `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
-	filters.Stage             `json:"stageType,omitempty"`
+	StartedAt                 int      `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
+	EndedAt                   int      `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
+	Type                      string   `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
+	Stage                     string   `json:"stageType,omitempty"`
 	ActiveDataCollectionRules []string `json:"activeDataCollectionRules,omitempty"` // More compact than sending the complete rule.
 
 	// filters.StageConnect

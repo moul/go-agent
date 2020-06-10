@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bearer/go-agent/events"
-	"github.com/bearer/go-agent/filters"
+	"github.com/bearer/go-agent/proxy"
 )
 
 // RoundTripper is the instrumented implementation of http.RoundTripper.
@@ -144,7 +144,7 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 				EventBase: *(&events.EventBase{}).SetRequest(request),
 				logLevel:  logLevel,
 			},
-			Stage: filters.StageConnect,
+			Stage: proxy.StageConnect,
 			Error: err,
 		}
 		return nil, err
@@ -156,7 +156,7 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 				EventBase: *(&events.EventBase{}).SetRequest(request),
 				logLevel:  logLevel,
 			},
-			Stage: filters.StageRequest,
+			Stage: proxy.StageRequest,
 			Error: err,
 		}
 		return nil, err
@@ -169,7 +169,7 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 			EventBase: *(&events.EventBase{}).SetRequest(request).SetResponse(response),
 			logLevel:  logLevel,
 		},
-		Stage: filters.StageResponse,
+		Stage: proxy.StageResponse,
 		Error: err,
 	}
 

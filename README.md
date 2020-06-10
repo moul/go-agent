@@ -1,96 +1,96 @@
-# @TODO : (review) Bearer.sh Go agent
+# Bearer.sh Go agent
 
 This module provides a pure Go HTTP (HTTPS, HTTP/2) transport decorator for Go
 Web API clients. It relies on the https://bearer.sh platform to provide
 metrics observation and anomaly detection.
 
 
-## Privacy considerations
+## Getting started
 
-@TODO : provide link to GDPR and other similar compliance documentation. 
+Register on https://login.bearer.sh/login to obtain an account and its secret key.
 
+Then, with that key in hand, just start your program code with a single specific statement:
 
-## @TODO : Getting started
+```go
+package main
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+import bearer `github.com/bearer/go-agent`
 
+func main() {
+    // Don't forget the second set of parentheses.
+    defer bearer.Init(`app_50-digits-long-secret-key-from-bearer.sh`)()
 
-### Prerequisites
-
-- Go 1.14.3 or later
-- Go modules enabled
-- To work on the agent and modify the FilterSet type:
-  - Go [`stringer`](https://pkg.go.dev/golang.org/x/tools/cmd?tab=overview) command 
-
-### @TODO : Installing
-
-A step by step series of examples that tell you how to get a development env 
-running
-
-Say what the step will be
-
-```
-Give the example
+    // From then on, all your http.Get and similar calls are instrumented.
+}
 ```
 
-And repeat
-
-```
-until finished
-```
-
-End with an example of getting some data out of the system or using it for a little demo
+To go further, just look at the examples in the `examples/` directory.
 
 
-## @TODO : Running the tests
+## Privacy considerations  / GDPR
 
-Explain how to run the automated tests for this system
-
-
-### @TODO : Break down into unit tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
+Since logging API calls may involve sensitive data, you may want to configure
+custom filters to strip (PII)[https://gdpr.eu/eu-gdpr-personal-data/] from the logs,
+using the `SensitiveKeys` and `SensitiveRegex` options on the agent.
 
 
-### @TODO : Break down into end to end tests
+## Deployment
 
-Explain what these tests test and why
+On a live system, you will likely apply two best practices:
 
-```
-Give an example
-```
-
-
-### @TODO : And coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-## @TODO : Deployment
-
-Add additional notes about how to deploy this on a live system
+- Take the secret key from the environment. We suggest calling the variable
+  `BEARER_SECRETKEY`, for which the `SecretKeyName` constant is available in the
+  `agent` package.
+- For logging
+  - either use the default agent logging, which goes to standard error output 
+    (12-factor suggests standard output), whence messages can be picked up, 
+  - or apply a frequent deviation from 12-factor by injecting a logger of your
+    choice to the configuration in `config/NewConfig()` and, ideally, also
+    injecting it to the default Go logger using `log.SetOutput(myLogger)` to
+    ensure logs consistency.
+     
+Your firewall will need to allow your application to perform outgoing HTTPS/HTTP2
+calls to the Bearer platform, at `https://config.bearer.sh` and `https://logs.bearer.sh`.
 
 
-## @TODO : Built With
+## Prerequisites
 
-- [Go 1.14.3](https://golang.org/) - The language
-- Add dependencies (PCRE, Brotli...)
+- For your applications:
+  - Go 1.14 or later
+  - Go modules enabled
+- To contribute to the agent
+  - Go [`stringer`](https://pkg.go.dev/golang.org/x/tools/cmd?tab=overview) command
+  - The `make` command    
+  - To rebuild the import graph
+    - [Godepgraph](https://github.com/kisielk/godepgraph) command
+    - [Graphviz](https://graphviz.org/)
+  - To check syntax and coding standards:
+    - [Golint](https://github.com/golang/lint)
+    - [Golangci-lint](https://github.com/golangci/golangci-lint)
+    
 
-
-## @TODO : Contributing
+## Contributing
 
 Please read [CONTRIBUTING.md](https://example.com) for details on our code of 
 conduct, and the process for submitting pull requests to us.
 
 
-## @TODO (review) Versioning
+### Running the tests
+
+The run the 300+ tests in the package, you can use `go test` if you wish, or run
+the preconfigured `go test` commands in the `Makefile`:
+
+- `make test_quick` runs the tests as fast as possible, not checking for race conditions
+- `make test_racy` runs the tests with the race detector, making them significantly slower
+
+
+### Run coding style tests
+
+These tests verify that the code base applies best practices: `make lint`
+
+This should just show the command being run, and display no warnings.
+
+### Versioning
 
 We use [SemVer](http://semver.org/) for versioning. For the versions available,
 see the [tags on this repository](https://code.osinet.fr/OSInet/bearer-go-agent/releases). 
@@ -99,7 +99,8 @@ see the [tags on this repository](https://code.osinet.fr/OSInet/bearer-go-agent/
 - Versions 0.m.p and 1.m.p use the original PoC code base and are now obsolete.
 
 
-## @FIXME : Authors
+## Credits / Legal
+### Authors
 
 - **Frédéric G. MARAND** - *Project development* - [OSInet](https://osinet.fr/go)
 - **Manfred TOURON** - *PoC version* - [Manfred.life](https://manfred.life)
@@ -107,19 +108,16 @@ see the [tags on this repository](https://code.osinet.fr/OSInet/bearer-go-agent/
 
 <!-- See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project. -->
 
+### License
 
-## @TODO : License
+This project is published under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details
 
-- This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details
-    
-[article by Ferry Boender]: https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html
 
-## @TODO : Acknowledgments
+### Acknowledgments
 
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
-
+- The events package is very much inspired by the [PSR-14](https://www.php-fig.org/psr/psr-14/)
+  specification, published under the CC-BY-3.0 UNPORTED license for text and MIT 
+  License for code.
 - The dependency resolution algorithm in `Description.resolveHashes` is adapted
   from an [article by Ferry Boender], published under a permissive license:
   
@@ -140,3 +138,5 @@ see the [tags on this repository](https://code.osinet.fr/OSInet/bearer-go-agent/
     
         All brand and product names mentioned in this document are trademarks or
         registered trademarks of their respective holders.
+
+[article by Ferry Boender]: https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html

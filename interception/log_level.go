@@ -86,7 +86,7 @@ func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
 	if *ll >= Restricted {
 		rl.StartedAt = int(re.T0.UnixNano() / 1E6)
 		rl.EndedAt = int(re.T1.UnixNano() / 1E6)
-		rl.Stage = re.Stage
+		rl.Stage = string(re.Stage)
 		rl.ActiveDataCollectionRules = []string{}
 		rl.Path = u.Path
 		rl.Method = request.Method
