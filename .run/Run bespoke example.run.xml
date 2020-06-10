@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Unit tests, all, racy" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="Run bespoke example" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="bearer-go-agent" />
     <working_directory value="$PROJECT_DIR$/" />
-    <go_parameters value="-i -race" />
+    <go_parameters value="-i" />
     <EXTENSION ID="net.ashald.envfile">
       <option name="IS_ENABLED" value="false" />
       <option name="IS_SUBST" value="false" />
@@ -13,11 +13,10 @@
         <ENTRY IS_ENABLED="true" PARSER="runconfig" />
       </ENTRIES>
     </EXTENSION>
-    <framework value="gotest" />
-    <kind value="DIRECTORY" />
-    <package value="github.com/bearer/go-agent" />
-    <directory value="$PROJECT_DIR$" />
+    <kind value="PACKAGE" />
     <filePath value="$PROJECT_DIR$/" />
+    <package value="github.com/bearer/go-agent/examples/bespoke" />
+    <directory value="$PROJECT_DIR$/" />
     <method v="2" />
   </configuration>
 </component>

@@ -91,7 +91,8 @@ type dispatcher struct {
 }
 
 func (d *dispatcher) Dispatch(ctx context.Context, e Event) (Event, error) {
-	providers, ok := d.providers[e.Topic()]
+	topic := e.Topic()
+	providers, ok := d.providers[topic]
 	// Shortcut: no provider means no listeners, so nothing to call.
 	if !ok {
 		return e, nil
