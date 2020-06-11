@@ -2,6 +2,7 @@ package interception
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"regexp"
 
@@ -12,7 +13,7 @@ import (
 const Filtered = `[FILTERED]`
 
 // DefaultSensitiveKeys is the expression used for sensitive keys if no other value is set.
-var DefaultSensitiveKeys = regexp.MustCompile(`(?i)^authorization$|^password$|^secret$|^passwd$|^api.?key$|^access.?token$|^auth.?token$|^credentials$|^mysql_pwd$|^stripetoken$|^card.?number.?$|^secret$|^client.?id$|,^client.?secret$`)
+var DefaultSensitiveKeys = regexp.MustCompile(`(?i)^(authorization|password|secret|passwd|api.?key|access.?token|auth.?token|credentials|mysql_pwd|stripetoken|card.?number.?|secret|client.?id|client.?secret)$`)
 
 // DefaultSensitiveData is the expression used for sensitive data if no other value is set.
 var DefaultSensitiveData = regexp.MustCompile("(?i)[a-z0-9]{1}[a-z0-9.!#$%&’*+=?^_\"{|}~-]+@[a-z0-9-]+(?:\\.[a-z0-9-]+)*|(?:\\d[ -]*?){13,16}")
@@ -37,50 +38,75 @@ func (p SanitizationProvider) Listeners(e events.Event) []events.Listener {
 	}
 }
 
+// sanitizeURL and sanitizeHeaders apply the same logical loop, but the methods
+// invoked have differing implementations.
 // To avoid overwriting original values, sanitizeURL returns a new URL.
 func (p SanitizationProvider) sanitizeURL(u *url.URL) (*url.URL, error) {
 	sanU, err := url.ParseRequestURI(u.String())
 	if err != nil {
 		return nil, err
 	}
-	q := u.Query()
-	sanQ := url.Values{}
+	in := u.Query()
+	out := make(url.Values, len(in))
 
-Query:
-	for k, vs := range q {
+Name:
+	for name, values := range in {
 		// Filter on keys, erasing all values.
 		for _, sk := range p.SensitiveKeys {
-			if sk.MatchString(k) {
-				sanQ[k] = []string{Filtered}
-				continue Query
+			if sk.MatchString(name) {
+				out.Set(name, Filtered)
+				continue Name
 			}
 		}
 
 		// If the key didn't match replace the matching values.
-		// TODO this only replaces the first matching regexp. Agent spec
-		//      doesn't clarify what to do if multiple regexps would match.
-	Values:
-		for _, v := range vs {
+		for _, value := range values {
 			for _, sr := range p.SensitiveRegexps {
-				if sr.MatchString(v) {
-					sanQ.Add(k, sr.ReplaceAllLiteralString(v, Filtered))
-					continue Values
+				if sr.MatchString(value) {
+					value = sr.ReplaceAllLiteralString(value, Filtered)
 				}
-				sanQ.Add(k, v)
 			}
+			out.Add(name, value)
 		}
 	}
-	sanU.RawQuery = sanQ.Encode()
+	sanU.RawQuery = out.Encode()
 
-	// TODO this only replaces the first matching regexp. Agent spec doesn't
-	//      clarify what to do if multiple regexps would match.
 	for _, r := range p.SensitiveRegexps {
 		if r.MatchString(sanU.Path) {
 			sanU.Path = r.ReplaceAllLiteralString(sanU.Path, Filtered)
-			break
 		}
 	}
 	return sanU, nil
+}
+
+// sanitizeHeaders and sanitizeURL apply the same logical loop, but the methods
+// invoked have differing implementations.
+// To avoid overwriting original values, sanitizeHeaders returns a new URL.
+func (p SanitizationProvider) sanitizeHeaders(in http.Header) http.Header {
+	out := make(http.Header, len(in))
+
+Name:
+	for name, values := range in {
+		// Filter on keys, erasing all values.
+		for _, sk := range p.SensitiveKeys {
+			if sk.MatchString(name) {
+				out.Set(name, Filtered)
+				continue Name
+			}
+		}
+
+		// If the key didn't match replace the matching values.
+		for _, value := range values {
+			for _, sr := range p.SensitiveRegexps {
+				if sr.MatchString(value) {
+					value = sr.ReplaceAllLiteralString(value, Filtered)
+				}
+			}
+			out.Add(name, value)
+		}
+	}
+
+	return out
 }
 
 // SanitizeQueryAndPaths sanitizes the URL query parameters and paths in both the
@@ -122,10 +148,25 @@ func (p SanitizationProvider) SanitizeQueryAndPaths(_ context.Context, e events.
 
 // SanitizeRequestHeaders sanitizes Request headers and trailers.
 func (p SanitizationProvider) SanitizeRequestHeaders(_ context.Context, e events.Event) error {
+	req := e.Request()
+	req.Header = p.sanitizeHeaders(req.Header)
+	e.SetRequest(req)
+
+	res := e.Response()
+	resReq := res.Request
+	if resReq == req {
+		return nil
+	}
+	resReq.Header = p.sanitizeHeaders(resReq.Header)
+	res.Request = resReq
+	e.SetResponse(res)
 	return nil
 }
 
 // SanitizeResponseHeaders sanitizes Response headers and trailers.
 func (p SanitizationProvider) SanitizeResponseHeaders(_ context.Context, e events.Event) error {
+	res := e.Response()
+	res.Header = p.sanitizeHeaders(res.Header)
+	e.SetResponse(res)
 	return nil
 }
