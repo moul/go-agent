@@ -5,6 +5,7 @@ package interception
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -107,12 +108,31 @@ func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
 	if *ll >= All {
 		rl.RequestHeaders = request.Header
 		rl.ResponseHeaders = response.Header
-		rl.RequestBody = ``
-		rl.ResponseBody = ``
 
+		var body []byte
+		if request.Body == nil {
+			body = []byte{}
+		} else {
+			body, err = ioutil.ReadAll(request.Body)
+			defer request.Body.Close()
+		}
+		if err != nil {
+			rl.Type = proxy.Error
+			rl.RequestBody = ``
+		} else {
+			rl.RequestBody = hex.EncodeToString(body)
+		}
 		reqSha := sha256.Sum256([]byte(rl.RequestBody))
 		rl.RequestBodyPayloadSHA = hex.EncodeToString(reqSha[:])
 
+		body, err = ioutil.ReadAll(response.Body)
+		if err != nil {
+			rl.Type = proxy.Error
+			rl.ResponseBody = ``
+		} else {
+			defer response.Body.Close()
+			rl.ResponseBody = hex.EncodeToString(body)
+		}
 		resSha := sha256.Sum256([]byte(rl.ResponseBody))
 		rl.ResponseBodyPayloadSHA = hex.EncodeToString(resSha[:])
 	}
