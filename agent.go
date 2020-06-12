@@ -68,12 +68,14 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 	a.Dispatcher.AddProviders(interception.TopicConnect, events.ListenerProviderFunc(a.Provider), dcrp)
 	a.Dispatcher.AddProviders(interception.TopicRequest, dcrp)
 	a.Dispatcher.AddProviders(interception.TopicResponse, dcrp)
-	a.Dispatcher.AddProviders(interception.TopicBodies, dcrp)
-	a.Dispatcher.AddProviders(interception.TopicReport, interception.SanitizationProvider{
-		SensitiveKeys:    a.config.SensitiveKeys(),
-		SensitiveRegexps: a.config.SensitiveRegexps(),
-	})
-	a.Dispatcher.AddProviders(interception.TopicReport, interception.ProxyProvider{Sender: a.Sender})
+	a.Dispatcher.AddProviders(interception.TopicBodies, interception.BodyParsingProvider{},dcrp)
+	a.Dispatcher.AddProviders(interception.TopicReport,
+		interception.SanitizationProvider{
+			SensitiveKeys:    a.config.SensitiveKeys(),
+			SensitiveRegexps: a.config.SensitiveRegexps(),
+		},
+		interception.ProxyProvider{Sender: a.Sender},
+	)
 	return &a, nil
 }
 

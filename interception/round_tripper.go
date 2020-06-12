@@ -129,7 +129,7 @@ func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, re
 }
 
 func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) (LogLevel, error) {
-	e := &ResponseEvent{
+	e := &BodiesEvent{
 		error: err,
 	}
 	e.SetLogLevel(logLevel)
@@ -147,7 +147,7 @@ func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, requ
 
 // RoundTrip implements the http.RoundTripper interface.
 func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	var logLevel LogLevel
+	logLevel := Detected
 	var err error
 	var rev *ReportEvent
 	var (
@@ -155,7 +155,10 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		t0 = time.Now()
 		t1 = t0
 	)
-	ctx := request.Context()
+
+	// XXX To add a platform-driven timeout, use context.WithTimeout here.
+	ctx := context.WithValue(request.Context(), LogLevelKey, logLevel)
+
 	defer func() {
 		rev.T0 = t0
 		// If the t1 reset was not reached, us the time spent in the agent.
@@ -168,12 +171,14 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 
 	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
 		rev = &ReportEvent{
-			apiEvent: apiEvent{
-				EventBase: events.EventBase{},
-				logLevel:  logLevel,
+			BodiesEvent: BodiesEvent{
+				apiEvent: apiEvent{
+					EventBase: events.EventBase{},
+					logLevel:  logLevel,
+				},
+				error: err,
 			},
 			Stage: proxy.StageConnect,
-			Error: err,
 		}
 		rev.apiEvent.SetRequest(request)
 		return nil, err
@@ -181,12 +186,14 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 
 	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
 		rev = &ReportEvent{
-			apiEvent: apiEvent{
-				EventBase: events.EventBase{},
-				logLevel:  logLevel,
+			BodiesEvent: BodiesEvent{
+				apiEvent: apiEvent{
+					EventBase: events.EventBase{},
+					logLevel:  logLevel,
+				},
+				error: err,
 			},
 			Stage: proxy.StageRequest,
-			Error: err,
 		}
 		rev.apiEvent.EventBase.SetRequest(request)
 		return nil, err
@@ -199,12 +206,14 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 
 	if logLevel, err = rt.stageResponse(ctx, logLevel, request, response, err); err != nil {
 		rev = &ReportEvent{
-			apiEvent: apiEvent{
-				EventBase: events.EventBase{},
-				logLevel:  logLevel,
+			BodiesEvent: BodiesEvent{
+				apiEvent: apiEvent{
+					EventBase: events.EventBase{},
+					logLevel:  logLevel,
+				},
+				error: err,
 			},
 			Stage: proxy.StageResponse,
-			Error: err,
 		}
 		rev.SetRequest(request).SetResponse(response)
 		return response, err
@@ -220,12 +229,14 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		if err != nil {
 			t1 = time.Now()
 			rev = &ReportEvent{
-				apiEvent: apiEvent{
-					EventBase: events.EventBase{},
-					logLevel:  logLevel,
+				BodiesEvent: BodiesEvent{
+					apiEvent: apiEvent{
+						EventBase: events.EventBase{},
+						logLevel:  logLevel,
+					},
+					error: err,
 				},
 				Stage: proxy.StageBodies,
-				Error: err,
 			}
 			rev.SetRequest(request).SetResponse(response)
 			return response, err
@@ -237,12 +248,14 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 
 	_, err = rt.stageBodies(ctx, logLevel, request, response, err)
 	rev = &ReportEvent{
-		apiEvent: apiEvent{
-			EventBase: events.EventBase{},
-			logLevel:  logLevel,
+		BodiesEvent: BodiesEvent{
+			apiEvent: apiEvent{
+				EventBase: events.EventBase{},
+				logLevel:  logLevel,
+			},
+			error: err,
 		},
 		Stage: proxy.StageBodies,
-		Error: err,
 	}
 	rev.SetRequest(request).SetResponse(response)
 	return response, err

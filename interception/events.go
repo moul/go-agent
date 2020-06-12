@@ -3,7 +3,6 @@ package interception
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -126,8 +125,9 @@ func (ResponseEvent) Topic() events.Topic {
 // BodiesEvent is the type of events dispatched at the TopicBodies stage.
 type BodiesEvent struct {
 	apiEvent
-
-	RequestBody, ResponseBody io.ReadCloser
+	error
+	requestBody, responseBody interface{}
+	requestSha, responseSha   []byte
 }
 
 // Topic is part of the Event interface.
@@ -137,9 +137,8 @@ func (BodiesEvent) Topic() events.Topic {
 
 // ReportEvent is emitted to publish a call proxy.ReportLog.
 type ReportEvent struct {
-	apiEvent
+	BodiesEvent
 	proxy.Stage
-	Error  error
 	T0, T1 time.Time
 }
 

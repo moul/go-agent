@@ -98,7 +98,7 @@ func TestSanitizationProvider_Listeners(t *testing.T) {
 		topic   string
 		wantLen int
 	}{
-		{`happy`, string(TopicReport), 3},
+		{`happy`, string(TopicReport), 5},
 		{`sad`, topic, 0},
 	}
 	for _, tt := range tests {
@@ -191,10 +191,9 @@ func TestSanitizationProvider_SanitizeResponseHeaders(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		keysREs := []*regexp.Regexp{DefaultSensitiveKeys}
+		valueREs := []*regexp.Regexp{DefaultSensitiveData}
 		t.Run(tt.name, func(t *testing.T) {
-			keysREs := []*regexp.Regexp{DefaultSensitiveKeys}
-			valueREs := []*regexp.Regexp{DefaultSensitiveData}
-
 			res := &http.Response{Header: make(http.Header, 1)}
 			for _, v := range tt.Values {
 				res.Header.Add(tt.Name, v)
@@ -212,6 +211,37 @@ func TestSanitizationProvider_SanitizeResponseHeaders(t *testing.T) {
 				t.Errorf(`sanitizeResponseHeaders for %s expected %v, got %v`, tt.Name, tt.expectedValues, actualValues)
 			}
 
+		})
+	}
+}
+
+func TestSanitizationProvider_sanitize(t *testing.T) {
+	const email = `john.doe@example.com`
+	const card = `fake` + Filtered + `card`
+
+	tests := []struct {
+		name     string
+		x        interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		//{`untouched map[string]string`, map[string]string{`foo`: `bar`}, map[string]string{`foo`: `bar`}, false},
+		//{`filtered key`, map[string]interface{}{`secret`: `bar`}, map[string]interface{}{`secret`: Filtered}, false},
+		{`fully filtered map value`, map[string]interface{}{`foo`: email}, map[string]interface{}{`foo`: Filtered}, false},
+		//{`partially filtered map value`, map[string]interface{}{`foo`: card}, map[string]interface{}{`foo`: `fake` + Filtered + `card`}, false},
+		//{`[]string, filtered`, []string{email}, []string{Filtered}, false},
+	}
+	for _, tt := range tests {
+		keysREs := []*regexp.Regexp{DefaultSensitiveKeys}
+		valueREs := []*regexp.Regexp{DefaultSensitiveData}
+		t.Run(tt.name, func(t *testing.T) {
+			p := SanitizationProvider{keysREs, valueREs}
+			if err := p.sanitize(tt.x, nil); (err != nil) != tt.wantErr {
+				t.Errorf("sanitize() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(tt.x, tt.expected) {
+				t.Errorf("sanitize got %v, wanted %v", tt.x, tt.expected)
+			}
 		})
 	}
 }

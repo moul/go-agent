@@ -5,15 +5,27 @@ package interception
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/bearer/go-agent/proxy"
 )
 
-// LogLevelKey is the key in contexts where the current LogLevel may be found.
-const LogLevelKey = `BearerLogLevel`
+const (
+	BodyTooLong  = `(omitted due to size)`
+	BodyIsBinary = `(not showing binary data)`
+
+	// LogLevelKey is the key in contexts where the current LogLevel may be found.
+	LogLevelKey = `BearerLogLevel`
+
+	MaximumBodySize = 1 << 20
+)
+
+var ParsableContentType = regexp.MustCompile(`(?i)(json|text|xml|x-www-form-urlencoded)`)
+var JsonContentType = regexp.MustCompile(`(?i)json`)
+var FormJsonContentType = regexp.MustCompile(`(?i)x-www-form-urlencoded`)
 
 // LogLevel represents the log levels defined by the Bearer platform.
 type LogLevel int
@@ -53,16 +65,11 @@ func LogLevelFromString(s string) LogLevel {
 	}
 }
 
-// Prepare extract the ReportLog information from the API call, depending on the LogLevel.
-func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
+// addDetectedInfo adds to the report the info reported at the "DETECTED" log level.
+func (ll *LogLevel) addDetectedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 	request := re.Request()
-	response := re.Response()
-	err := re.Error
-
-	if re.Request() == nil {
-		request, _ = http.NewRequest(``, ``, nil)
-	}
 	u := request.URL
+
 	// Cf. Go runtime: src/net/http/transport.go
 	PortMap := map[string]uint16{
 		"http":   80,
@@ -71,70 +78,99 @@ func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
 	}
 	port := PortMap[u.Scheme] // Having 0 in case of errors is expected.
 
+	// The Agent spec specifies errors are not part of the minimal Detected level report.
+	rl.Hostname = u.Hostname()
+	rl.LogLevel = strings.ToUpper(ll.String())
+	rl.Port = port
+	rl.Protocol = u.Scheme
+}
+
+// addRestrictedInfo adds to the report the info reported at the "RESTRICTED" log level.
+func (ll *LogLevel) addRestrictedInfo(rl *proxy.ReportLog, re *ReportEvent) {
+	request := re.Request()
+	response := re.Response()
+	u := request.URL
+
+	err := re.error
 	var errorCode, errorMessage string
 	if err != nil {
 		errorCode = err.Error()
 		errorMessage = errorCode
 	}
 
-	rl := proxy.ReportLog{
-		LogLevel: strings.ToUpper(ll.String()),
-		Port:     port,
-		Protocol: u.Scheme,
-		Hostname: u.Hostname(),
+	rl.StartedAt = int(re.T0.UnixNano() / 1E6)
+	rl.EndedAt = int(re.T1.UnixNano() / 1E6)
+	rl.Stage = string(re.Stage)
+	rl.ActiveDataCollectionRules = []string{}
+	rl.Path = u.Path
+	rl.Method = request.Method
+	rl.URL = u.String()
+	if response != nil {
+		rl.StatusCode = response.StatusCode
 	}
+	rl.ErrorCode = errorCode
+	rl.ErrorFullMessage = errorMessage
+
+	if err != nil {
+		rl.Type = proxy.Error
+	} else {
+		rl.Type = proxy.End
+	}
+}
+
+// addAllInfo adds to the report the info reported at the "ALL" log level.
+func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
+	request, response, err := re.Request(), re.Response(), re.error
+
+	rl.RequestHeaders = request.Header
+	rl.ResponseHeaders = response.Header
+
+	var body, sha string
+	if request.Body != nil {
+		body, sha, err = ll.parseBody(request.Header.Get(proxy.ContentTypeHeader), request.Body)
+	}
+	if err != nil {
+		rl.Type = proxy.Error
+		rl.RequestBody = ``
+	} else {
+		rl.RequestBody = hex.EncodeToString([]byte(body))
+	}
+	reqSha := sha256.Sum256([]byte(rl.RequestBody))
+	rl.RequestBodyPayloadSHA = hex.EncodeToString(reqSha[:])
+
+	body, sha, err = ll.parseBody(response.Header.Get(proxy.ContentTypeHeader), response.Body)
+	if err != nil {
+		rl.Type = proxy.Error
+		rl.ResponseBody = ``
+	} else {
+		defer response.Body.Close()
+		rl.ResponseBody = hex.EncodeToString([]byte(sha))
+	}
+	resSha := sha256.Sum256([]byte(rl.ResponseBody))
+	rl.ResponseBodyPayloadSHA = hex.EncodeToString(resSha[:])
+}
+
+func (ll *LogLevel) parseBody(ct string, in io.ReadCloser) (out, sha string, err error) {
+	defer in.Close()
+	return
+}
+
+// Prepare extract the ReportLog information from the API call, depending on the LogLevel.
+func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
+	if request := re.Request(); request == nil {
+		request, _ = http.NewRequest(``, ``, nil)
+		re.SetRequest(request)
+	}
+
+	rl := proxy.ReportLog{}
+	ll.addDetectedInfo(&rl, re)
 
 	if *ll >= Restricted {
-		rl.StartedAt = int(re.T0.UnixNano() / 1E6)
-		rl.EndedAt = int(re.T1.UnixNano() / 1E6)
-		rl.Stage = string(re.Stage)
-		rl.ActiveDataCollectionRules = []string{}
-		rl.Path = u.Path
-		rl.Method = request.Method
-		rl.URL = u.String()
-		if response != nil {
-			rl.StatusCode = response.StatusCode
-		}
-		rl.ErrorCode = errorCode
-		rl.ErrorFullMessage = errorMessage
-
-		if err != nil {
-			rl.Type = proxy.Error
-		} else {
-			rl.Type = proxy.End
-		}
-
+		ll.addRestrictedInfo(&rl, re)
 	}
+
 	if *ll >= All {
-		rl.RequestHeaders = request.Header
-		rl.ResponseHeaders = response.Header
-
-		var body []byte
-		if request.Body == nil {
-			body = []byte{}
-		} else {
-			body, err = ioutil.ReadAll(request.Body)
-			defer request.Body.Close()
-		}
-		if err != nil {
-			rl.Type = proxy.Error
-			rl.RequestBody = ``
-		} else {
-			rl.RequestBody = hex.EncodeToString(body)
-		}
-		reqSha := sha256.Sum256([]byte(rl.RequestBody))
-		rl.RequestBodyPayloadSHA = hex.EncodeToString(reqSha[:])
-
-		body, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			rl.Type = proxy.Error
-			rl.ResponseBody = ``
-		} else {
-			defer response.Body.Close()
-			rl.ResponseBody = hex.EncodeToString(body)
-		}
-		resSha := sha256.Sum256([]byte(rl.ResponseBody))
-		rl.ResponseBodyPayloadSHA = hex.EncodeToString(resSha[:])
+		ll.addAllInfo(&rl, re)
 	}
 	return rl
 }

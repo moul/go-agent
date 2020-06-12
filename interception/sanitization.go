@@ -2,15 +2,19 @@ package interception
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
+
+	"github.com/icza/dyno"
 
 	"github.com/bearer/go-agent/events"
 )
 
 // Filtered is a well-known string replacing filtered-out content.
-const Filtered = `[FILTERED]`
+const Filtered = `(FILTERED)`
 
 // DefaultSensitiveKeys is the expression used for sensitive keys if no other value is set.
 var DefaultSensitiveKeys = regexp.MustCompile(`(?i)^(authorization|password|secret|passwd|api.?key|access.?token|auth.?token|credentials|mysql_pwd|stripetoken|card.?number.?|secret|client.?id|client.?secret)$`)
@@ -35,6 +39,8 @@ func (p SanitizationProvider) Listeners(e events.Event) []events.Listener {
 		p.SanitizeQueryAndPaths,
 		p.SanitizeRequestHeaders,
 		p.SanitizeResponseHeaders,
+		p.SanitizeRequestBody,
+		p.SanitizeResponseBody,
 	}
 }
 
@@ -169,4 +175,89 @@ func (p SanitizationProvider) SanitizeResponseHeaders(_ context.Context, e event
 	res.Header = p.sanitizeHeaders(res.Header)
 	e.SetResponse(res)
 	return nil
+}
+
+func (p SanitizationProvider) SanitizeRequestBody(_ context.Context, e events.Event) error {
+	re, ok := e.(*ReportEvent)
+	if !ok {
+		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
+	}
+	err := p.sanitize(re.responseBody, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p SanitizationProvider) SanitizeResponseBody(_ context.Context, e events.Event) error {
+	return nil
+}
+
+// sanitize provides sanitization for values coming from an unmarshalled JSON
+// document, which restricts very much what type it may contain.
+//
+// It is not a generic sanitization function for any kind of data beyond those.
+func (p SanitizationProvider) sanitize(x interface{}, path []interface{}) error {
+	y, err := dyno.Get(x, path...)
+	if err != nil {
+		return err
+	}
+	switch z := y.(type) {
+	case map[string]interface{}:
+	MapSI:
+		for k, v := range z {
+			for _, re := range p.SensitiveKeys {
+				if re.MatchString(k) {
+					dyno.Set(x, Filtered, append(path, k)...)
+					continue MapSI
+				}
+			}
+			if isIterable(v) {
+				p.sanitize(x, append(path, k))
+			}
+
+		}
+	case map[interface{}]interface{}:
+	MapII:
+		for k := range z {
+			for _, re := range p.SensitiveKeys {
+				if re.MatchString(fmt.Sprint(k)) {
+					dyno.Set(x, Filtered, append(path, k)...)
+					continue MapII
+				}
+			}
+			p.sanitize(x, append(path, k))
+		}
+	case []interface{}:
+		for k := range z {
+			p.sanitize(x, append(path, k))
+		}
+	case []string:
+		for k := range z {
+			s := z[k]
+			filtered := false
+			for _, re := range p.SensitiveRegexps {
+				if re.MatchString(s) {
+					s = re.ReplaceAllLiteralString(s, Filtered)
+					filtered = true
+				}
+			}
+			if filtered {
+				z[k] = s
+			}
+		}
+	default:
+		// Nothing to do in other cases.
+	}
+	return nil
+}
+
+func isIterable(x interface{}) bool {
+	typ := reflect.TypeOf(x)
+	switch typ.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Array:
+		return true
+	default:
+		return false
+	}
 }
