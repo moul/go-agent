@@ -2,18 +2,20 @@ package interception
 
 import (
 	"fmt"
-	"log"
 	"reflect"
-	"strings"
 )
 
-type WalkFn func(ik interface{}, iv *interface{}) error
+// WalkFn is the type for visitor functions used with a Walker.
+type WalkFn func(ik interface{}, iv *interface{}, accu *interface{}) error
 
+// Walker is able to walk a visitor WalkFn in preorder across the whole tree of
+// a value unmarshalled from JSON, which is far from being any type of Go data.
 type Walker interface {
 	fmt.Stringer
-	Walk(WalkFn) error
+	Walk(accu *interface{}, visitor WalkFn) error
 }
 
+// NewWalker builds an initialized Walker.
 func NewWalker(x interface{}) Walker {
 	return walker{
 		root: x,
@@ -28,17 +30,23 @@ func (w walker) String() string {
 	return fmt.Sprint(w.root)
 }
 
-func (w walker) Walk(fn WalkFn) error {
-	return w.walkPreOrder(nil, &w.root, fn)
+func (w walker) Walk(accu *interface{}, visitor WalkFn) error {
+	return w.walkPreOrder(nil, &w.root, accu, visitor)
 }
 
-func (w walker) walkPreOrder(k interface{}, v *interface{}, fn WalkFn) error {
-	if err := fn(k, v); err != nil {
+func (w walker) walkPreOrder(k interface{}, v *interface{}, accu *interface{}, visitor WalkFn) error {
+	if err := visitor(k, v, accu); err != nil {
 		return err
 	}
 
 	value := reflect.ValueOf(*v)
-	kind := reflect.TypeOf(*v).Kind()
+	typ := reflect.TypeOf(*v)
+	var kind reflect.Kind
+	if typ == nil {
+		kind = reflect.Invalid
+	} else {
+		kind = typ.Kind()
+	}
 	switch kind {
 	case reflect.Map:
 		iter := value.MapRange()
@@ -46,7 +54,7 @@ func (w walker) walkPreOrder(k interface{}, v *interface{}, fn WalkFn) error {
 			k := iter.Key()
 			v := iter.Value()
 			vi := v.Interface()
-			err := w.walkPreOrder(k.Interface(), &vi, fn)
+			err := w.walkPreOrder(k.Interface(), &vi, accu, visitor)
 			if err != nil {
 				return err
 			}
@@ -57,7 +65,7 @@ func (w walker) walkPreOrder(k interface{}, v *interface{}, fn WalkFn) error {
 		for i := 0; i < len; i++ {
 			v := value.Index(i)
 			vi := v.Interface()
-			if err := w.walkPreOrder(i, &vi, fn); err != nil {
+			if err := w.walkPreOrder(i, &vi, accu, visitor); err != nil {
 				return err
 			}
 			v.Set(reflect.ValueOf(vi))
@@ -69,26 +77,26 @@ func (w walker) walkPreOrder(k interface{}, v *interface{}, fn WalkFn) error {
 	return nil
 }
 
-func BodySanitizer(k interface{}, v *interface{}) error {
-	s := fmt.Sprintf("%v %v", k, *v)
-	log.Print(s)
+// BodySanitizer applies sanitization rules to data.
+func (p SanitizationProvider) BodySanitizer(k interface{}, v *interface{}, accu *interface{}) error {
 	if k == nil {
 		return nil
 	}
 	if sk, ok := k.(string); ok {
-		if strings.Contains(sk, "secret") {
-			*v = Filtered
-			return nil
+		for _, re := range p.SensitiveKeys {
+			if re.MatchString(sk) {
+				*v = Filtered
+				return nil
+			}
 		}
 	}
 
 	if reflect.ValueOf(*v).Kind() == reflect.String {
-		sv, ok := (*v).(string)
-		if !ok {
-			return fmt.Errorf("not a string: %#v", *v)
-		}
-		if strings.Contains(sv, "card") {
-			sv = strings.Replace(sv, "card", Filtered, -1)
+		sv, _ := (*v).(string) // Cannot fail because of previous line.
+		for _, re := range p.SensitiveRegexps {
+			if re.MatchString(sv) {
+				sv = re.ReplaceAllLiteralString(sv, Filtered)
+			}
 		}
 		*v = sv
 	}

@@ -3,14 +3,13 @@ package interception_test
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/bearer/go-agent/interception"
 )
 
 func TestWalker_WalkPreOrder(t *testing.T) {
-	const card = `fake370057577167325card`
-	const mail = `john.doe@example.com`
 
 	j1 := `
 {
@@ -45,6 +44,10 @@ func TestWalker_WalkPreOrder(t *testing.T) {
 		{"degenerate: single int", j2},
 	}
 
+	p := interception.SanitizationProvider{
+		SensitiveKeys:    []*regexp.Regexp{interception.DefaultSensitiveKeys},
+		SensitiveRegexps: []*regexp.Regexp{interception.DefaultSensitiveData},
+	}
 	for _, tt := range tests {
 		var x interface{}
 		err := json.Unmarshal([]byte(tt.j), &x)
@@ -53,7 +56,11 @@ func TestWalker_WalkPreOrder(t *testing.T) {
 		}
 		w := interception.NewWalker(x)
 
-		w.Walk(interception.BodySanitizer)
+		var accu interface{}
+		err = w.Walk(&accu, p.BodySanitizer)
+		if err != nil {
+			t.Errorf("WalkPreOrder error: %v", err)
+		}
 		fmt.Println(w)
 	}
 }

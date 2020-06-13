@@ -1,0 +1,24 @@
+syntax = "proto3";
+package bearer_agent_shape_hash;
+option go_package = "../interception";
+
+message FieldDescriptor {
+  ShapeDescriptor hash = 1;
+  string key = 2;
+}
+
+message ShapeDescriptor {
+  enum PrimitiveType {
+    OBJECT = 0;
+    ARRAY = 1;
+    STRING = 2;
+    NUMBER = 3;
+    BOOLEAN = 4;
+    NULL = 5;
+  }
+  // Order in schema is used for JSON, while numbers are used for protobuf.
+  repeated FieldDescriptor fields = 4;
+  repeated ShapeDescriptor items = 2;
+  repeated string rules = 3;
+  PrimitiveType type = 1;
+}

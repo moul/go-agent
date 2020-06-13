@@ -13,19 +13,31 @@ import (
 	"github.com/bearer/go-agent/proxy"
 )
 
+// ContextKey is the type to use for any key added to the context by this package.
+type ContextKey string
+
 const (
+	// BodyTooLong is the replacement string for bodies beyond MaximumBodySize.
 	BodyTooLong  = `(omitted due to size)`
+
+	// BodyIsBinary is the replacement string for unparseable bodies.
 	BodyIsBinary = `(not showing binary data)`
 
 	// LogLevelKey is the key in contexts where the current LogLevel may be found.
-	LogLevelKey = `BearerLogLevel`
+	LogLevelKey ContextKey = `BearerLogLevel`
 
+	// MaximumBodySize is the largest body size to store whole.
 	MaximumBodySize = 1 << 20
 )
 
+// ParsableContentType is a regexp defining the types to attempt to parse.
 var ParsableContentType = regexp.MustCompile(`(?i)(json|text|xml|x-www-form-urlencoded)`)
-var JsonContentType = regexp.MustCompile(`(?i)json`)
-var FormJsonContentType = regexp.MustCompile(`(?i)x-www-form-urlencoded`)
+
+// JSONContentType is a regexp defining the content types to handle as JSON.
+var JSONContentType = regexp.MustCompile(`(?i)json`)
+
+// FormContentType is a regexp definint the content types to handle as traditional web forms.
+var FormContentType = regexp.MustCompile(`(?i)x-www-form-urlencoded`)
 
 // LogLevel represents the log levels defined by the Bearer platform.
 type LogLevel int
