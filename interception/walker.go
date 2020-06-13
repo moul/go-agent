@@ -13,6 +13,7 @@ type WalkFn func(ik interface{}, iv *interface{}, accu *interface{}) error
 type Walker interface {
 	fmt.Stringer
 	Walk(accu *interface{}, visitor WalkFn) error
+	Value() interface{}
 }
 
 // NewWalker builds an initialized Walker.
@@ -28,6 +29,10 @@ type walker struct {
 
 func (w walker) String() string {
 	return fmt.Sprint(w.root)
+}
+
+func (w walker) Value() interface{} {
+	return w.root
 }
 
 func (w walker) Walk(accu *interface{}, visitor WalkFn) error {
@@ -77,28 +82,3 @@ func (w walker) walkPreOrder(k interface{}, v *interface{}, accu *interface{}, v
 	return nil
 }
 
-// BodySanitizer applies sanitization rules to data.
-func (p SanitizationProvider) BodySanitizer(k interface{}, v *interface{}, accu *interface{}) error {
-	if k == nil {
-		return nil
-	}
-	if sk, ok := k.(string); ok {
-		for _, re := range p.SensitiveKeys {
-			if re.MatchString(sk) {
-				*v = Filtered
-				return nil
-			}
-		}
-	}
-
-	if reflect.ValueOf(*v).Kind() == reflect.String {
-		sv, _ := (*v).(string) // Cannot fail because of previous line.
-		for _, re := range p.SensitiveRegexps {
-			if re.MatchString(sv) {
-				sv = re.ReplaceAllLiteralString(sv, Filtered)
-			}
-		}
-		*v = sv
-	}
-	return nil
-}

@@ -237,3 +237,63 @@ func TestSanitizationProvider_sanitize(t *testing.T) {
 		})
 	}
 }
+
+func TestSanitizationProvider_SanitizeRequestBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		{`untouched map[string]string`, map[string]string{`foo`: `bar`}, map[string]string{`foo`: `bar`}, false},
+		{`filtered key`, map[string]interface{}{`secret`: `bar`}, map[string]interface{}{`secret`: interception.Filtered}, false},
+		{`fully filtered map value`, map[string]interface{}{`foo`: mail}, map[string]interface{}{`foo`: interception.Filtered}, false},
+		{`partially filtered map value`, map[string]interface{}{`foo`: card}, map[string]interface{}{`foo`: `fake` + interception.Filtered + `card`}, false},
+		{`[]string, filtered`, []string{mail}, []string{interception.Filtered}, false},
+	}
+	p := newSanitizationProvider()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &interception.ReportEvent{
+				BodiesEvent: interception.BodiesEvent{RequestBody: tt.body},
+			}
+			if err := p.SanitizeRequestBody(context.Background(), e); (err != nil) != tt.wantErr {
+				t.Errorf("SanitizeRequestBody() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			actual, expected := e.RequestBody, tt.expected
+			if !reflect.DeepEqual(actual, expected) {
+				t.Errorf("SanitizeRequestBody got %v expected %v", e.RequestBody, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSanitizationProvider_SanitizeResponseBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		{`untouched map[string]string`, map[string]string{`foo`: `bar`}, map[string]string{`foo`: `bar`}, false},
+		{`filtered key`, map[string]interface{}{`secret`: `bar`}, map[string]interface{}{`secret`: interception.Filtered}, false},
+		{`fully filtered map value`, map[string]interface{}{`foo`: mail}, map[string]interface{}{`foo`: interception.Filtered}, false},
+		{`partially filtered map value`, map[string]interface{}{`foo`: card}, map[string]interface{}{`foo`: `fake` + interception.Filtered + `card`}, false},
+		{`[]string, filtered`, []string{mail}, []string{interception.Filtered}, false},
+	}
+	p := newSanitizationProvider()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &interception.ReportEvent{
+				BodiesEvent: interception.BodiesEvent{ResponseBody: tt.body},
+			}
+			if err := p.SanitizeResponseBody(context.Background(), e); (err != nil) != tt.wantErr {
+				t.Errorf("SanitizeResponseBody() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			actual, expected := e.ResponseBody, tt.expected
+			if !reflect.DeepEqual(actual, expected) {
+				t.Errorf("SanitizeResponseBody got %v expected %v", e.ResponseBody, tt.expected)
+			}
+		})
+	}
+}

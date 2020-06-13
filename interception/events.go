@@ -126,8 +126,8 @@ func (ResponseEvent) Topic() events.Topic {
 type BodiesEvent struct {
 	apiEvent
 	error
-	requestBody, responseBody interface{}
-	requestSha, responseSha   []byte
+	RequestBody, ResponseBody interface{}
+	RequestSha, ResponseSha   []byte
 }
 
 // Topic is part of the Event interface.

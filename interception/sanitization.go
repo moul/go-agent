@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
 
 	"github.com/bearer/go-agent/events"
@@ -174,21 +175,60 @@ func (p SanitizationProvider) SanitizeResponseHeaders(_ context.Context, e event
 	return nil
 }
 
+// SanitizeRequestBody sanitized the Request body in a ReportEvent.
 func (p SanitizationProvider) SanitizeRequestBody(_ context.Context, e events.Event) error {
 	re, ok := e.(*ReportEvent)
 	if !ok {
 		return fmt.Errorf(`expected ReportEvent, got %T`, e)
 	}
-	w := NewWalker(re.responseBody)
+	w := NewWalker(re.RequestBody)
 	var accu interface{}
 	err := w.Walk(&accu, p.BodySanitizer)
 	if err != nil {
 		return err
 	}
+	re.RequestBody = w.Value()
 	return nil
 }
 
+// SanitizeResponseBody sanitizes the Response body in a ReportEvent.
 func (p SanitizationProvider) SanitizeResponseBody(_ context.Context, e events.Event) error {
+	re, ok := e.(*ReportEvent)
+	if !ok {
+		return fmt.Errorf(`expected ReportEvent, got %T`, e)
+	}
+	w := NewWalker(re.ResponseBody)
+	var accu interface{}
+	err := w.Walk(&accu, p.BodySanitizer)
+	if err != nil {
+		return err
+	}
+	re.ResponseBody = w.Value()
 	return nil
 }
 
+// BodySanitizer applies sanitization rules to data.
+func (p SanitizationProvider) BodySanitizer(k interface{}, v *interface{}, accu *interface{}) error {
+	if k == nil {
+		return nil
+	}
+	if sk, ok := k.(string); ok {
+		for _, re := range p.SensitiveKeys {
+			if re.MatchString(sk) {
+				*v = Filtered
+				return nil
+			}
+		}
+	}
+
+	if reflect.ValueOf(*v).Kind() == reflect.String {
+		sv, _ := (*v).(string) // Cannot fail because of previous line.
+		for _, re := range p.SensitiveRegexps {
+			if re.MatchString(sv) {
+				sv = re.ReplaceAllLiteralString(sv, Filtered)
+			}
+		}
+		*v = sv
+	}
+	return nil
+}
