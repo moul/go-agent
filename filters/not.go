@@ -2,7 +2,8 @@ package filters
 
 import (
 	"fmt"
-	"net/http"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // NotFilter provides a filter inverting the underlying filter.
@@ -23,9 +24,9 @@ func (f *NotFilter) ensureFilter() {
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *NotFilter) MatchesCall(request *http.Request, response *http.Response) bool {
+func (f *NotFilter) MatchesCall(e events.Event) bool {
 	f.ensureFilter()
-	return f.filterSet.MatchesCall(request, response)
+	return f.filterSet.MatchesCall(e)
 }
 
 // SetFilter sets the filter to invert.

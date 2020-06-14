@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // RFC7230_3_2_6Token is the regular expression defining the RFC 7230 production
@@ -21,8 +23,8 @@ func (*HTTPMethodFilter) Type() FilterType {
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *HTTPMethodFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
-	return f.StringMatcher.Matches(r.Method)
+func (f *HTTPMethodFilter) MatchesCall(e events.Event) bool {
+	return f.StringMatcher.Matches(e.Request().Method)
 }
 
 // SetMatcher sets the filter StringMatcher.

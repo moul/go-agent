@@ -4,11 +4,13 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 const (
 	BearerDomain = `bearer.sh`
-	BearerRE = `^bearer\.sh$`
+	BearerRE     = `^bearer\.sh$`
 )
 
 func TestDomainFilter_MatchesCall(t *testing.T) {
@@ -32,7 +34,10 @@ func TestDomainFilter_MatchesCall(t *testing.T) {
 				RegexpMatcher: tt.matcher,
 			}
 			url, _ := url.Parse(`https://` + tt.domain)
-			if got := f.MatchesCall(&http.Request{URL: url}, nil); got != tt.want {
+
+			e := &events.EventBase{}
+			e.SetRequest(&http.Request{URL: url})
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})

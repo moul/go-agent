@@ -44,6 +44,7 @@ const (
 
 // APIEvent is the type common to all API call lifecycle events.
 type APIEvent interface {
+	events.Event
 	LogLevel() LogLevel
 	SetLogLevel(l LogLevel) APIEvent
 }
@@ -192,7 +193,7 @@ func (p DCRProvider) Listeners(e events.Event) []events.Listener {
 					continue
 				}
 				// Rule may increase logLevel if it matches: run it.
-				if dcr.MatchesCall(e.Request(), e.Response()) {
+				if dcr.MatchesCall(e) {
 					logLevel = dcr.LogLevel
 				}
 			}

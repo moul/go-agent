@@ -2,7 +2,8 @@ package filters
 
 import (
 	"fmt"
-	"net/http"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // YesFilter provides a filter accepting any input, even nil.
@@ -14,7 +15,7 @@ func (*YesFilter) Type() FilterType {
 }
 
 // MatchesCall is part of the Filter interface.
-func (*YesFilter) MatchesCall(_ *http.Request, _ *http.Response) bool {
+func (*YesFilter) MatchesCall(events.Event) bool {
 	return true
 }
 

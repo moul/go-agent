@@ -2,9 +2,10 @@ package filters
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // FilterMap binds Filter hashes in a config.Description to the actual Filter instances.
@@ -57,9 +58,9 @@ func (ft filterType) String() string {
 type Filter interface {
 	Type() FilterType
 	// MatchesCall checks whether the filter, with its configuration, matches the
-	// request and response passed to it, if any: some filters may not need a
+	// events.Event passed to it, if any: some filters may not need a
 	// request nor a response, in which case nil is a valid value to pass them.
-	MatchesCall(*http.Request, *http.Response) bool
+	MatchesCall(event events.Event) bool
 	// SetMatcher assigns a specific Matcher instance to the filter.
 	// Passing a nil matcher will assign a filter-specific default Matcher.
 	SetMatcher(Matcher) error
@@ -90,7 +91,8 @@ var (
 	//RequestBodiesFilterType  FilterType = filterType{"RequestBodiesFilter", requestBodiesFilterFromDescription, true, false}
 	//ResponseBodiesFilterType FilterType = filterType{"ResponseBodiesFilter", responseBodiesFilterFromDescription, false, true}
 
-	//ConnectionErrorFilterType FilterType = filterType{"ConnectionErrorFilter", connectionErrorFilterFromDescription, false, false}
+	// ConnectionErrorFilterType describes ConnectionErrorFilter.
+	ConnectionErrorFilterType FilterType = filterType{"ConnectionErrorFilter", connectionErrorFilterFromDescription, false, false}
 	yesInternalFilter FilterType = filterType{"YesFilter", nil, false, false}
 )
 
@@ -116,6 +118,8 @@ func FilterTypeByName(name string) FilterType {
 		return ResponseHeadersFilterType
 	case StatusCodeFilterType.Name():
 		return StatusCodeFilterType
+	case ConnectionErrorFilterType.Name():
+		return ConnectionErrorFilterType
 	case yesInternalFilter.Name():
 		return yesInternalFilter
 	default:

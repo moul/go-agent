@@ -3,7 +3,8 @@ package filters
 import (
 	"errors"
 	"fmt"
-	"net/http"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // ParamFilter provides a key-value filter for API request parameters.
@@ -17,12 +18,13 @@ func (*ParamFilter) Type() FilterType {
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *ParamFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
+func (f *ParamFilter) MatchesCall(e events.Event) bool {
 	m := NewKeyValueMatcher(f.KeyRegexp().String(), f.ValueRegexp().String())
-	if r.URL == nil {
+	u := e.Request().URL
+	if u == nil {
 		return false
 	}
-	return m.Matches(r.URL.Query())
+	return m.Matches(u.Query())
 }
 
 // SetMatcher sets the filter KeyValueMatcher.

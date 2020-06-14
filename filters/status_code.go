@@ -2,7 +2,8 @@ package filters
 
 import (
 	"fmt"
-	"net/http"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // StatusCodeFilter provides a filter for the response status code in API requests.
@@ -23,9 +24,9 @@ func (f *StatusCodeFilter) ensureMatcher() {
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *StatusCodeFilter) MatchesCall(_ *http.Request, s *http.Response) bool {
+func (f *StatusCodeFilter) MatchesCall(e events.Event) bool {
 	f.ensureMatcher()
-	return f.Matches(s.StatusCode)
+	return f.Matches(e.Response().StatusCode)
 }
 
 // SetMatcher sets the filter RangeMatcher. A nil RangeMatcher mean any valid StatusCode.

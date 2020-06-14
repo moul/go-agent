@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 func TestParamFilter_MatchesCall(t *testing.T) {
@@ -26,8 +28,8 @@ func TestParamFilter_MatchesCall(t *testing.T) {
 			f := &ParamFilter{}
 			// This is not a test for SetMatcher.
 			_ = f.SetMatcher(NewKeyValueMatcher(foo, bar))
-
-			if got := f.MatchesCall(tt.req, nil); got != tt.want {
+			e := (&events.EventBase{}).SetRequest(tt.req)
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})

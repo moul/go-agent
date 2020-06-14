@@ -3,6 +3,8 @@ package filters
 import (
 	"net/http"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 func TestStatusCodeFilter_MatchesCall(t *testing.T) {
@@ -23,7 +25,8 @@ func TestStatusCodeFilter_MatchesCall(t *testing.T) {
 			f := &StatusCodeFilter{
 				RangeMatcher: tt.matcher,
 			}
-			if got := f.MatchesCall(nil, &http.Response{StatusCode: tt.statusCode}); got != tt.want {
+			e := (&events.EventBase{}).SetResponse(&http.Response{StatusCode: tt.statusCode})
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})

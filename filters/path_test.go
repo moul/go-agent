@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 const (
@@ -33,7 +35,8 @@ func TestPathFilter_MatchesCall(t *testing.T) {
 				RegexpMatcher: tt.matcher,
 			}
 			url, _ := url.Parse(tt.path)
-			if got := f.MatchesCall(&http.Request{URL: url}, nil); got != tt.want {
+			e := (&events.EventBase{}).SetRequest(&http.Request{URL: url})
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})
