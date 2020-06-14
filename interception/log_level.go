@@ -3,9 +3,7 @@ package interception
 //go:generate stringer -type=LogLevel -output log_level_names.go
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"io"
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"strings"
@@ -22,6 +20,9 @@ const (
 
 	// BodyIsBinary is the replacement string for unparseable bodies.
 	BodyIsBinary = `(not showing binary data)`
+
+	// BodyUndecodable is the replacement string for bodies which were expected to be parsable but failed decoding.
+	BodyUndecodable = `(could not decode data)`
 
 	// LogLevelKey is the key in contexts where the current LogLevel may be found.
 	LogLevelKey ContextKey = `BearerLogLevel`
@@ -135,36 +136,35 @@ func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
 	request, response, err := re.Request(), re.Response(), re.error
 
 	rl.RequestHeaders = request.Header
-	rl.ResponseHeaders = response.Header
-
-	var body, sha string
-	if request.Body != nil {
-		body, sha, err = ll.parseBody(request.Header.Get(proxy.ContentTypeHeader), request.Body)
-	}
+	rl.RequestBodyPayloadSHA = re.RequestSha
 	if err != nil {
 		rl.Type = proxy.Error
 		rl.RequestBody = ``
 	} else {
-		rl.RequestBody = hex.EncodeToString([]byte(body))
+		body, err := json.Marshal(re.RequestBody)
+		if err != nil {
+			rl.Type = proxy.Error
+			rl.RequestBody = BodyUndecodable
+		} else {
+			rl.RequestBody = string(body)
+		}
 	}
-	reqSha := sha256.Sum256([]byte(rl.RequestBody))
-	rl.RequestBodyPayloadSHA = hex.EncodeToString(reqSha[:])
 
-	body, sha, err = ll.parseBody(response.Header.Get(proxy.ContentTypeHeader), response.Body)
+	rl.ResponseHeaders = response.Header
+	rl.ResponseBodyPayloadSHA = re.ResponseSha
 	if err != nil {
 		rl.Type = proxy.Error
 		rl.ResponseBody = ``
 	} else {
 		defer response.Body.Close()
-		rl.ResponseBody = hex.EncodeToString([]byte(sha))
+		body, err := json.Marshal(re.ResponseBody)
+		if err != nil {
+			rl.Type = proxy.Error
+			rl.ResponseBody = BodyUndecodable
+		} else {
+			rl.ResponseBody = string(body)
+		}
 	}
-	resSha := sha256.Sum256([]byte(rl.ResponseBody))
-	rl.ResponseBodyPayloadSHA = hex.EncodeToString(resSha[:])
-}
-
-func (ll *LogLevel) parseBody(ct string, in io.ReadCloser) (out, sha string, err error) {
-	defer in.Close()
-	return
 }
 
 // Prepare extract the ReportLog information from the API call, depending on the LogLevel.

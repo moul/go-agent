@@ -1,11 +1,8 @@
 package interception
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -128,21 +125,21 @@ func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, re
 	return e.LogLevel(), nil
 }
 
-func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) (LogLevel, error) {
-	e := &BodiesEvent{
-		error: err,
-	}
-	e.SetLogLevel(logLevel)
-	e.SetRequest(request).SetResponse(response)
-	_, err = rt.Dispatch(ctx, e)
-	if err != nil {
-		return e.LogLevel(), err
-	}
-	if err = ctx.Err(); err != nil {
-		return e.LogLevel(), err
-	}
+func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) *ReportEvent {
+	rev := NewReportEvent(logLevel, proxy.StageBodies, err)
+	rev.BodiesEvent = BodiesEvent{error: err}
 
-	return e.LogLevel(), nil
+	rev.SetLogLevel(logLevel)
+	rev.SetRequest(request).SetResponse(response)
+	_, rev.error = rt.Dispatch(ctx, &rev.BodiesEvent)
+	if rev.error != nil {
+		return rev
+	}
+	if rev.error = ctx.Err(); rev.error != nil {
+		return rev
+	}
+	rev.T1 = rev.readTimestamp
+	return rev
 }
 
 // RoundTrip implements the http.RoundTripper interface.
@@ -170,32 +167,14 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	}()
 
 	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
-		rev = &ReportEvent{
-			BodiesEvent: BodiesEvent{
-				apiEvent: apiEvent{
-					EventBase: events.EventBase{},
-					logLevel:  logLevel,
-				},
-				error: err,
-			},
-			Stage: proxy.StageConnect,
-		}
-		rev.apiEvent.SetRequest(request)
+		rev = NewReportEvent(logLevel, proxy.StageConnect, err)
+		rev.SetRequest(request)
 		return nil, err
 	}
 
 	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
-		rev = &ReportEvent{
-			BodiesEvent: BodiesEvent{
-				apiEvent: apiEvent{
-					EventBase: events.EventBase{},
-					logLevel:  logLevel,
-				},
-				error: err,
-			},
-			Stage: proxy.StageRequest,
-		}
-		rev.apiEvent.EventBase.SetRequest(request)
+		rev = NewReportEvent(logLevel, proxy.StageRequest, err)
+		rev.SetRequest(request)
 		return nil, err
 	}
 
@@ -205,58 +184,12 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	t1 = time.Now()
 
 	if logLevel, err = rt.stageResponse(ctx, logLevel, request, response, err); err != nil {
-		rev = &ReportEvent{
-			BodiesEvent: BodiesEvent{
-				apiEvent: apiEvent{
-					EventBase: events.EventBase{},
-					logLevel:  logLevel,
-				},
-				error: err,
-			},
-			Stage: proxy.StageResponse,
-		}
+		rev = NewReportEvent(logLevel, proxy.StageResponse, err)
 		rev.SetRequest(request).SetResponse(response)
-		return response, err
+		return rev.Response(), err
 	}
 
-	// Force body reading
-	if response.Body == nil {
-		response.Body = ioutil.NopCloser(bytes.NewReader(nil))
-		t1 = time.Now()
-	} else {
-		buf := bytes.Buffer{}
-		_, err := io.Copy(&buf, response.Body)
-		if err != nil {
-			t1 = time.Now()
-			rev = &ReportEvent{
-				BodiesEvent: BodiesEvent{
-					apiEvent: apiEvent{
-						EventBase: events.EventBase{},
-						logLevel:  logLevel,
-					},
-					error: err,
-				},
-				Stage: proxy.StageBodies,
-			}
-			rev.SetRequest(request).SetResponse(response)
-			return response, err
-		}
-		response.Body.Close()
-		t1 = time.Now()
-		response.Body = ioutil.NopCloser(&buf)
-	}
-
-	_, err = rt.stageBodies(ctx, logLevel, request, response, err)
-	rev = &ReportEvent{
-		BodiesEvent: BodiesEvent{
-			apiEvent: apiEvent{
-				EventBase: events.EventBase{},
-				logLevel:  logLevel,
-			},
-			error: err,
-		},
-		Stage: proxy.StageBodies,
-	}
-	rev.SetRequest(request).SetResponse(response)
-	return response, err
+	// No need to check logLevel here: if we reached that point, logLevel is All.
+	rev = rt.stageBodies(ctx, logLevel, request, response, err)
+	return rev.Response(), rev.error
 }

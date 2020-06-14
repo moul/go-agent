@@ -100,6 +100,20 @@ func NewConnectEvent(url *url.URL) *ConnectEvent {
 	return e
 }
 
+// NewReportEvent builds a ReportEvent, empty but for logLevel, stage, and error.
+func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
+	return &ReportEvent{
+		BodiesEvent: BodiesEvent{
+			apiEvent: apiEvent{
+				EventBase: events.EventBase{},
+				logLevel:  logLevel,
+			},
+			error: err,
+		},
+		Stage: stage,
+	}
+}
+
 // RequestEvent is the type of events dispatched at the TopicRequest stages.
 type RequestEvent struct {
 	apiEvent
@@ -126,8 +140,9 @@ func (ResponseEvent) Topic() events.Topic {
 type BodiesEvent struct {
 	apiEvent
 	error
+	readTimestamp             time.Time
 	RequestBody, ResponseBody interface{}
-	RequestSha, ResponseSha   []byte
+	RequestSha, ResponseSha   string
 }
 
 // Topic is part of the Event interface.
