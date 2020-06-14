@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -53,16 +54,19 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 	}
 	a.SetLogger(logger)
 
-	secretKeyOption := config.WithSecretKey(secretKey)
 	c, err := config.NewConfig(
+		secretKey,
 		unwrapTransport(http.DefaultClient.Transport),
 		a.logger,
 		Version,
-		append([]config.Option{secretKeyOption}, opts...)...)
+		opts...)
 	if err != nil {
 		return nil, fmt.Errorf("configuring new agent: %w", err)
 	}
 	a.config = c
+	if c.IsDisabled() {
+		return &a, errors.New(`remote config unavailable`)
+	}
 	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
 		c.SecretKey(), c.RuntimeEnvironmentType(),
 		a.DefaultTransport(), a.Logger())
@@ -104,6 +108,9 @@ func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
 // clients, as well as the runtime library DefaultClient, with Bearer
 // instrumentation.
 func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
+	if a.config.IsDisabled() {
+		return
+	}
 	if a.transports == nil {
 		a.transports = make(transportMap)
 	}
@@ -164,8 +171,8 @@ func close(a *Agent) func () error {
 func Init(secretKey string, opts ...config.Option) func() error {
 	var err error
 	DefaultAgent, err = NewAgent(secretKey, os.Stderr, opts...)
-	if err != nil {
-		err = fmt.Errorf("could not initialize Bearer agent: %w", err)
+	if err != nil || DefaultAgent.config == nil || DefaultAgent.config.IsDisabled() {
+		err = fmt.Errorf("did not initialize Bearer agent: %w", err)
 		log.Println(err)
 		return uninitializedClose(err)
 	}

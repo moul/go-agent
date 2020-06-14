@@ -25,6 +25,9 @@ func TestNewAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a, _ := NewAgent(ExampleWellFormedInvalidKey, ioutil.Discard)
+			if a == nil && !tt.wantErr {
+				t.Fatal("got unexpected nil agent")
+			}
 
 			// Set up test server.
 			ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -72,7 +75,7 @@ func TestInit(t *testing.T) {
 		secretKey string
 		wantErr   bool
 	}{
-		{"happy", ExampleWellFormedInvalidKey, false},
+		{"well-formed invalid key", ExampleWellFormedInvalidKey, true},
 		{"ill-formed key", "foo", true},
 	}
 	for _, tt := range tests {
