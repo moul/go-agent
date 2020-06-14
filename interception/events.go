@@ -105,10 +105,9 @@ func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEven
 	return &ReportEvent{
 		BodiesEvent: BodiesEvent{
 			apiEvent: apiEvent{
-				EventBase: events.EventBase{},
+				EventBase: events.EventBase{Error: err},
 				logLevel:  logLevel,
 			},
-			error: err,
 		},
 		Stage: stage,
 	}
@@ -127,7 +126,6 @@ func (re RequestEvent) Topic() events.Topic {
 // ResponseEvent is the type of events dispatched at the TopicResponse stage.
 type ResponseEvent struct {
 	apiEvent
-	error
 }
 
 // Topic is part of the Event interface.
@@ -139,7 +137,6 @@ func (ResponseEvent) Topic() events.Topic {
 // BodiesEvent is the type of events dispatched at the TopicBodies stage.
 type BodiesEvent struct {
 	apiEvent
-	error
 	readTimestamp             time.Time
 	RequestBody, ResponseBody interface{}
 	RequestSha, ResponseSha   string

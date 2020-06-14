@@ -19,7 +19,7 @@ func (p BodyParsingProvider) ResponseBodyLoader(_ context.Context, e events.Even
 		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
 	}
 	response := be.Response()
-	response.Body, be.error = p.loadBody(response.Body)
+	response.Body, be.Error = p.loadBody(response.Body)
 	be.SetResponse(response)
 	be.readTimestamp = time.Now()
 	return nil

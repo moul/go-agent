@@ -104,7 +104,7 @@ func (ll *LogLevel) addRestrictedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 	response := re.Response()
 	u := request.URL
 
-	err := re.error
+	err := re.Error
 	var errorCode, errorMessage string
 	if err != nil {
 		errorCode = err.Error()
@@ -133,7 +133,7 @@ func (ll *LogLevel) addRestrictedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 
 // addAllInfo adds to the report the info reported at the "ALL" log level.
 func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
-	request, response, err := re.Request(), re.Response(), re.error
+	request, response, err := re.Request(), re.Response(), re.Error
 
 	rl.RequestHeaders = request.Header
 	rl.RequestBodyPayloadSHA = re.RequestSha

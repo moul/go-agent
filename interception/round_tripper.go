@@ -109,9 +109,7 @@ func (rt *RoundTripper) stageRequest(logLevel LogLevel, request *http.Request) (
 }
 
 func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) (LogLevel, error) {
-	e := &ResponseEvent{
-		error: err,
-	}
+	e := &ResponseEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
 	e.SetLogLevel(logLevel)
 	e.SetRequest(request).SetResponse(response)
 	_, err = rt.Dispatch(ctx, e)
@@ -127,15 +125,15 @@ func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, re
 
 func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) *ReportEvent {
 	rev := NewReportEvent(logLevel, proxy.StageBodies, err)
-	rev.BodiesEvent = BodiesEvent{error: err}
+	rev.BodiesEvent = BodiesEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
 
 	rev.SetLogLevel(logLevel)
 	rev.SetRequest(request).SetResponse(response)
-	_, rev.error = rt.Dispatch(ctx, &rev.BodiesEvent)
-	if rev.error != nil {
+	_, rev.Error = rt.Dispatch(ctx, &rev.BodiesEvent)
+	if rev.Error != nil {
 		return rev
 	}
-	if rev.error = ctx.Err(); rev.error != nil {
+	if rev.Error = ctx.Err(); rev.Error != nil {
 		return rev
 	}
 	rev.T1 = rev.readTimestamp
@@ -191,5 +189,5 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 
 	// No need to check logLevel here: if we reached that point, logLevel is All.
 	rev = rt.stageBodies(ctx, logLevel, request, response, err)
-	return rev.Response(), rev.error
+	return rev.Response(), rev.Err()
 }
