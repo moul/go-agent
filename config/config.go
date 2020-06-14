@@ -86,13 +86,14 @@ func (c *Config) SecretKey() string {
 	return c.secretKey
 }
 
-func isSecretKeyWellFormed(k string) bool {
-	return SecretKeyRegex.MatchString(k)
+// IsSecretKeyWellFormed verifies whether the secret key matches the expected format.
+func IsSecretKeyWellFormed(secretKey string) bool {
+	return SecretKeyRegex.MatchString(secretKey)
 }
 
 // IsDisabled is a getter for isDisabled, also checking whether the key is plausible.
 func (c *Config) IsDisabled() bool {
-	return c.isDisabled || !isSecretKeyWellFormed(c.secretKey)
+	return c.isDisabled || !IsSecretKeyWellFormed(c.secretKey)
 }
 
 // RuntimeEnvironmentType is a getter for runtimeEnvironmentType.

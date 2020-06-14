@@ -65,3 +65,22 @@ func TestNewAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestInit(t *testing.T) {
+	tests := []struct {
+		name      string
+		secretKey string
+		wantErr   bool
+	}{
+		{"happy", ExampleWellFormedInvalidKey, false},
+		{"ill-formed key", "foo", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Init(tt.secretKey);
+			if err := got(); (err != nil) != tt.wantErr {
+				t.Errorf("Init()() = %v", err)
+			}
+		})
+	}
+}

@@ -34,7 +34,7 @@ var OptionDisabled Option = func(c *Config) error {
 // OptionEnvironment is an always-on Option loading values from the environment.
 var OptionEnvironment Option = func(c *Config) error {
 	if key, ok := os.LookupEnv(SecretKeyName); ok {
-		if isSecretKeyWellFormed(key) {
+		if IsSecretKeyWellFormed(key) {
 			c.secretKey = key
 		}
 	}
@@ -70,7 +70,6 @@ func WithRemote(transport http.RoundTripper, logger *zerolog.Logger, version str
 		c.logger = logger
 		c.fetcher = NewFetcher(transport, logger, version, c)
 		c.fetcher.Fetch()
-		c.fetcher.Start()
 		return nil
 	}
 }
@@ -92,7 +91,7 @@ func WithRuntimeEnvironmentType(rtet string) Option {
 
 // WithSecretKey is a functional Option setting the secret key if it is well-formed.
 func WithSecretKey(secretKey string) Option {
-	if !isSecretKeyWellFormed(secretKey) {
+	if !IsSecretKeyWellFormed(secretKey) {
 		return WithError(errors.New("secret key is not well-formed"))
 	}
 	return func(c *Config) error {
