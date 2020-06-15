@@ -146,6 +146,7 @@ func NewSender(
 func (s *Sender) Send(log ReportLog) {
 	if s.FanIn == nil {
 		s.Warn().Msg(`sending attempted after Stop: ignored`)
+		return
 	}
 	go func() {
 		s.FanIn <- log
