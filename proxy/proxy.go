@@ -10,13 +10,17 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 )
 
 const (
 	// AckBacklog is the capacity of the log write acknowledgments channel.
-	AckBacklog = 1000
+	AckBacklog     = 1000
+	// QuietLoopPause is the duration of the pause the Start loop will enter
+	// if no I/O is available, to avoid consuming too much power by tight looping.
+	QuietLoopPause = 10 * time.Millisecond
 	// FanInBacklog is the capacity of the fan-in log write channel
 	FanInBacklog = 100
 
@@ -116,8 +120,8 @@ type Sender struct {
 // Stop notifies the background sending loop that the application is shutting
 // down. Any ReportLog elements send after that call will be lost and unreported.
 func (s *Sender) Stop() {
-	s.Done <- true
-	s.FanIn = nil
+	s.Finish <- true
+	close(s.FanIn)
 }
 
 // NewSender builds a ready-to-user
@@ -170,7 +174,11 @@ Normal:
 			break Normal
 
 		// ReportLog to write.
-		case rl := <-s.FanIn:
+		case rl, ok := <-s.FanIn:
+			if !ok {
+				s.Logger.Trace().Msgf("Sender switching to Finishing mode on FanIn close, at counter %d.", s.Counter)
+				break Normal
+			}
 			s.Logger.Trace().Msg("Sender received log to send.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
@@ -199,11 +207,20 @@ Normal:
 				go s.WriteLog(NewReportLossReport(s.Lost))
 				s.Lost = 0
 			}
+		default:
+			// Go tight loops may be sub-microsecond, so if nothing is going on,
+			// avoid a tight loop to save energy.
+			if len(s.FanIn) == 0 && len(s.Acks) == 0 && len(s.Finish) == 0 {
+				time.Sleep(QuietLoopPause)
+			}
 		}
 	}
 
 	// Finishing.
 	for {
+		if len(s.FanIn) == 0 {
+			return
+		}
 		select {
 		// ReportLog to write. Same as normal operation.
 		case rl := <-s.FanIn:
@@ -232,12 +249,8 @@ Normal:
 				go s.WriteLog(NewReportLossReport(s.Lost))
 				s.Lost = 0
 			}
-			if len(s.FanIn) == 0 {
-				return
-			}
 		}
 	}
-
 }
 
 // WriteLog attempts to transmit a ReportLog to the Bearer platform, and acknowleges
