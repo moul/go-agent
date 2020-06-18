@@ -64,6 +64,9 @@ func main() {
 }
 ```
 
+For even more advanced use cases, the API also allows creating multiple
+configurations and multiple Bearer agents.
+
 
 ## Privacy considerations  / GDPR
 
