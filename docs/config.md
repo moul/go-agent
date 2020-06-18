@@ -21,8 +21,7 @@ The config mechanism applies the following logic:
 
 ## Dependencies
 
-- A non-decorated transport, to perform config requests to Bearer, only if there
-  is at least one non-overridden setting.
+- A non-decorated transport, to perform config requests to Bearer.
 - A logger, to report errors. -> agent.Logger
 - Default configuration, to obtain the config endpoint URL and transport settings -> config.Config
 - An event bus, to emit config update events -> agent.Dispatcher

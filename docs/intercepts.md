@@ -23,19 +23,6 @@ See a more complete simple example in `examples/simple/simple.go`.
 If your code uses multiple custom clients with various settings, but still uses
 the `http.DefaultTransport`, they will also be instrumented with no extra work.
 
-You may also pass extra clients to the `agent.Init` call, if they are already
-available on application startup, and they will all be monitored, like this:
-
-```go
-	// Step 1: initialize the Bearer agent, adding the custom client(s).
-	defer agent.Init(secretKey, fooClient)()
-
-	// Step 2: use your custom client as usual.
-	res, _ := fooClient.Get(exampleAPIURL.String())
-	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
-```
-
 
 ## Bespoke clients
 

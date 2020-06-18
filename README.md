@@ -24,7 +24,45 @@ func main() {
 }
 ```
 
-To go further, just look at the examples in the `examples/` directory.
+This one-line version will even provide instrumentation for multiple clients using
+the `http.DefaultTransport` provided by the Go standard library.
+
+
+## Fully configurable version
+
+If your needs go beyond the default Go transport, you can create your own instrumented
+transport, and use it in your custom-created HTTP clients:
+
+```go
+package main 
+import (
+	"net/http"
+	"os"
+
+	"github.com/bearer/go-agent"
+	"github.com/bearer/go-agent/config"
+	"github.com/bearer/go-agent/proxy"
+)
+
+
+func main() {
+	// Step 1: initialize Bearer.
+	defer agent.Init(os.Getenv(config.SecretKeyName))()
+
+	// Step 2: prepare your custom transport, decorating it with the Bearer agent.
+	var baseTransport = http.DefaultTransport.(*http.Transport)
+
+	// Say your enterprise proxy needs a specific CONNECT header.
+	baseTransport.ProxyConnectHeader = http.Header{"ACME_ID": []string{"some secret"}}
+	transport := agent.DefaultAgent.Decorate(baseTransport)
+
+	// Step 3: use your client as usual.
+	client := http.Client{Transport: transport}
+	response, err := client.Do(&http.Request{URL: proxy.MustParseURL(`http://someurl.tld/path`)})
+
+    // ...use the API response and error as usual
+}
+```
 
 
 ## Privacy considerations  / GDPR
@@ -40,7 +78,7 @@ On a live system, you will likely apply two best practices:
 
 - Take the secret key from the environment. We suggest calling the variable
   `BEARER_SECRETKEY`, for which the `SecretKeyName` constant is available in the
-  `agent` package.
+  `config` package.
 - For logging
   - either use the default agent logging, which goes to standard error output 
     (12-factor suggests standard output), whence messages can be picked up, 
@@ -77,7 +115,7 @@ conduct, and the process for submitting pull requests to us.
 
 ### Running the tests
 
-The run the 300+ tests in the package, you can use `go test` if you wish, or run
+The run the 370+ tests in the package, you can use `go test` if you wish, or run
 the preconfigured `go test` commands in the `Makefile`:
 
 - `make test_quick` runs the tests as fast as possible, not checking for race conditions
