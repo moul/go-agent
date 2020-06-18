@@ -5,27 +5,33 @@ import (
 	"os"
 
 	"github.com/rs/zerolog"
+
+	"github.com/bearer/go-agent/config"
 )
 
 // Logger returns a valid zerolog.Logger instance for the agent.
 func (a *Agent) Logger() *zerolog.Logger {
-	if a.logger == nil {
+	if a.config == nil || a.config.Logger == nil {
 		a.SetLogger(os.Stderr)
 	}
-	return a.logger
+	return a.config.Logger
 }
 
 // SetLogger changes the logger with a specific zerolog.Logger.
 //
 // If the writer is a zerolog.Writer, it is used as such, otherwise a new
-// zerolog.Logger is used to wrap it.
+// zerolog.Logger is used to wrap it. If the agent has no current config, an
+// empty config will be added to it to carry the logger.
 func (a *Agent) SetLogger(w io.Writer) *Agent {
 	zl, ok := w.(*zerolog.Logger)
 	if !ok {
 		l := zerolog.New(w)
 		zl = &l
 	}
-	a.logger = zl
+	if a.config == nil {
+		a.config = &config.Config{}
+	}
+	_ = config.WithLogger(zl)(a.config)
 	return a
 }
 

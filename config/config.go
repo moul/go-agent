@@ -2,6 +2,7 @@ package config
 
 import (
 	"net/http"
+	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ type Config struct {
 
 	// Internal runtime properties.
 	fetcher *Fetcher
-	logger  *zerolog.Logger
+	*zerolog.Logger
 	sync.Mutex
 }
 
@@ -118,19 +119,19 @@ func (c *Config) UpdateFromDescription(description Description) {
 	defer c.Unlock()
 	filterDescriptions, err := description.filterDescriptions()
 	if err != nil {
-		c.logger.Warn().Msgf(`invalid configuration received from config server: %v`, err)
+		c.Warn().Msgf(`invalid configuration received from config server: %v`, err)
 		return
 	}
 	resolved, err := description.resolveHashes(filterDescriptions)
 	if err != nil {
-		c.logger.Warn().Msgf(`incorrect filter resolution in configuration received from config server: %v`, err)
+		c.Warn().Msgf(`incorrect filter resolution in configuration received from config server: %v`, err)
 		return
 	}
 	c.filters = resolved
 
 	dcrs, err := description.resolveDCRs(resolved)
 	if err != nil {
-		c.logger.Warn().Err(err).Msg(`resolving data collection rules`)
+		c.Warn().Err(err).Msg(`resolving data collection rules`)
 		return
 	}
 	c.dataCollectionRules = dcrs
@@ -147,12 +148,12 @@ type Option func(*Config) error
 // NewConfig is the default Config constructor: it builds a configuration from
 // the builtin agent defaults, the environment, the Bearer platform configuration
 // and any optional Option values passed by the caller.
-func NewConfig(secretKey string, transport http.RoundTripper, logger *zerolog.Logger, version string, opts ...Option) (*Config, error) {
+func NewConfig(secretKey string, transport http.RoundTripper, version string, opts ...Option) (*Config, error) {
 	alwaysOn := []Option{
 		OptionDefaults,
 		OptionEnvironment,
 		WithSecretKey(secretKey),
-		WithRemote(transport, logger, version), // Sets Fetcher.
+		WithRemote(transport, version), // Sets Fetcher.
 	}
 
 	options := append(alwaysOn, opts...)
@@ -165,6 +166,9 @@ func NewConfig(secretKey string, transport http.RoundTripper, logger *zerolog.Lo
 	}
 	if !c.IsDisabled() {
 		c.fetcher.Start()
+	}
+	if c.Logger == nil {
+		_ = WithLogger(os.Stderr)(c)
 	}
 	return c, nil
 }

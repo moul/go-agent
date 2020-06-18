@@ -24,7 +24,7 @@ func TestNewAgent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a, _ := NewAgent(ExampleWellFormedInvalidKey, ioutil.Discard)
+			a, _ := NewAgent(ExampleWellFormedInvalidKey)
 			if a == nil && !tt.wantErr {
 				t.Fatal("got unexpected nil agent")
 			}
