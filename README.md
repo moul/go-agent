@@ -97,7 +97,7 @@ calls to the Bearer platform, at `https://config.bearer.sh` and `https://logs.be
 ## Prerequisites
 
 - For your applications:
-  - Go 1.14 or later
+  - Go 1.13 or later
   - Go modules enabled
 - To contribute to the agent
   - Go [`stringer`](https://pkg.go.dev/golang.org/x/tools/cmd?tab=overview) command
