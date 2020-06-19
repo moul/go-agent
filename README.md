@@ -98,6 +98,11 @@ see the [tags on this repository](https://code.osinet.fr/OSInet/bearer-go-agent/
 - Versions 2.m.p are the current stable versions.
 - Versions 0.m.p and 1.m.p use the original PoC code base and are now obsolete.
 
+When preparing to commit a branch, commit all files, then, run `go generate agent.go` 
+to generate the `agent_sha.go` file containing the commit SHA, and add a commit
+with that information, not squashing it. Users will be able to report that SHA
+to support to enable them to be sure of the version of the agent actually in use.
+ 
 
 ## Credits / Legal
 ### Authors

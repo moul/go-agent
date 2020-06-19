@@ -1,5 +1,7 @@
 package agent
 
+//go:generate sh generate_sha.sh
+
 import (
 	"errors"
 	"fmt"
