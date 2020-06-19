@@ -54,7 +54,7 @@ func WithError(err error) Option {
 }
 
 // WithFilters is a functional Option for filters.
-func WithFilters(fs []filters.Filter) Option {
+func WithFilters(fs filters.FilterMap) Option {
 	return func(c *Config) error {
 		c.filters = fs
 		return nil
@@ -65,8 +65,9 @@ func WithFilters(fs []filters.Filter) Option {
 func WithRemote(transport http.RoundTripper, logger *zerolog.Logger, version string) Option {
 	return func(c *Config) error {
 		c.logger = logger
-		fetcher := NewFetcher(transport, logger, version, c)
-		fetcher.Fetch()
+		c.fetcher = NewFetcher(transport, logger, version, c)
+		c.fetcher.Fetch()
+		c.fetcher.Start()
 		return nil
 	}
 }

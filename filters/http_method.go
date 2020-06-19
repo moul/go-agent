@@ -60,13 +60,9 @@ func (f *HTTPMethodFilter) SetMatcher(matcher Matcher) error {
 	return nil
 }
 
-func methodFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
-	s, ok := d.(string)
-	if !ok {
-		return nil
-	}
+func methodFilterFromDescription(_ FilterMap, fd *FilterDescription) Filter {
 	f := &HTTPMethodFilter{}
-	err := f.SetMatcher(NewStringMatcher(s, true))
+	err := f.SetMatcher(NewStringMatcher(fd.Value, true))
 	if err != nil {
 		return nil
 	}

@@ -65,12 +65,8 @@ func (f *NotFilter) AddChildren(filters ...Filter) FilterSet {
 	return f
 }
 
-func notFilterFromDescription(fm FilterMap, d interface{}) Filter {
-	ch, ok := d.(string)
-	if !ok {
-		return nil
-	}
-	child, ok := fm[ch]
+func notFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
+	child, ok := filterMap[fd.ChildHash]
 	if !ok {
 		return nil
 	}

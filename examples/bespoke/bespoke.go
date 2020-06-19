@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/bearer/go-agent"
 	"github.com/bearer/go-agent/config"
@@ -18,7 +19,7 @@ func main() {
 	}
 
 	// Step 1: initialize Bearer.
-	defer agent.Init(agent.ExampleWellFormedInvalidKey)()
+	defer agent.Init(secretKey)()
 
 	// Step 2: prepare your custom transport, decorating it with the Bearer agent.
 	var baseTransport = http.DefaultTransport.(*http.Transport)
@@ -41,4 +42,5 @@ func main() {
 	}
 
 	examples.ShowOrg(body)
+	time.Sleep(10 * time.Second)
 }

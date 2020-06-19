@@ -49,13 +49,9 @@ func (f *ParamFilter) SetMatcher(matcher Matcher) error {
 	return nil
 }
 
-func paramFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
-	kvd, ok := d.(KeyValueDescription)
-	if !ok {
-		return nil
-	}
+func paramFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
 	// FIXME apply RegexpMatcherDescription.Flags.
-	m := NewKeyValueMatcher(kvd.KeyPattern.Value, kvd.ValuePattern.Value)
+	m := NewKeyValueMatcher(fd.KeyPattern.Value, fd.ValuePattern.Value)
 	if m == nil {
 		return nil
 	}
