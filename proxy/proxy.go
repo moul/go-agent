@@ -159,12 +159,12 @@ Normal:
 		select {
 		// Finish received: switch to Finishing mode.
 		case <-s.Finish:
-			s.Logger.Debug().Msgf("Sender switching to Finishing mode at counter %d.", s.Counter)
+			s.Logger.Trace().Msgf("Sender switching to Finishing mode at counter %d.", s.Counter)
 			break Normal
 
 		// ReportLog to write.
 		case rl := <-s.FanIn:
-			s.Logger.Debug().Msg("Sender received log to send.")
+			s.Logger.Trace().Msg("Sender received log to send.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
 				continue
@@ -174,7 +174,7 @@ Normal:
 
 		// Acknowledgment of ReportLog written.
 		case n := <-s.Acks:
-			s.Logger.Debug().Msg("Sender received ack.")
+			s.Logger.Trace().Msg("Sender received ack.")
 			if n == 0 {
 				s.Error().Msgf("received an acknowledgment for 0 report at counter %d", s.Counter)
 				continue
@@ -200,7 +200,7 @@ Normal:
 		select {
 		// ReportLog to write. Same as normal operation.
 		case rl := <-s.FanIn:
-			s.Logger.Debug().Msg("Finishing sender received log.")
+			s.Logger.Trace().Msg("Finishing sender received log.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
 				continue
@@ -209,7 +209,7 @@ Normal:
 			go s.WriteLog(rl)
 
 		case n := <-s.Acks:
-			s.Logger.Debug().Msg("Finishing sender received ack.")
+			s.Logger.Trace().Msg("Finishing sender received ack.")
 			if n == 0 {
 				s.Error().Msg("received an acknowledgment in finishing phase but for 0 report")
 				continue
@@ -275,7 +275,7 @@ func (s *Sender) WriteLog(rl ReportLog) {
 				Msgf(`got response %d %s transmitting log %d to the report server.`, res.StatusCode, res.Status, s.Counter)
 			return
 		}
-		s.Debug().
+		s.Trace().
 			Uint("reportId", s.Counter).
 			Str("status", res.Status).
 			RawJSON("report", body).
