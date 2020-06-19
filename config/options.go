@@ -20,6 +20,8 @@ var OptionDefaults Option = func(c *Config) error {
 	c.ReportEndpoint = DefaultReportEndpoint
 	c.ReportOutstanding = DefaultReportOutstanding
 	c.fetchInterval = DefaultConfigFetchInterval
+	c.sensitiveKeys = []*regexp.Regexp{interception.DefaultSensitiveKeys}
+	c.sensitiveRegexes = []*regexp.Regexp{interception.DefaultSensitiveData}
 	return nil
 }
 
