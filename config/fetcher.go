@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -19,7 +20,6 @@ import (
 const (
 	// EOL is ASCII LF as a string.
 	EOL = "\n"
-
 )
 
 // Description is a serialization-friendly description of the parts of Config
@@ -33,6 +33,7 @@ type Description struct {
 		Remediations []interface{}
 		RuleType     string
 	}
+	Error map[string]string
 }
 
 func (d Description) String() string {
@@ -206,18 +207,18 @@ func NewFetcher(transport http.RoundTripper, logger *zerolog.Logger, version str
 // Fetch fetches a fresh configuration from the Bearer platform and assigns it
 // to the current config. As per Agent spec, all config fetch errors are logged
 // and ignored.
-func (f *Fetcher) Fetch() {
+func (f *Fetcher) Fetch() error {
 	report := &bytes.Buffer{}
 	err := json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.config.runtimeEnvironmentType, f.config.secretKey))
 	if err != nil {
 		f.logger.Warn().Msgf("building Bearer config report: %v", err)
-		return
+		return err
 	}
 
 	req, err := http.NewRequest(http.MethodPost, f.config.configEndpoint, report)
 	if err != nil {
 		f.logger.Warn().Msgf("building Bearer remote config request: %v", err)
-		return
+		return err
 	}
 	req.Header.Add(proxy.AcceptHeader, "application/json")
 	req.Header.Add("Authorization", f.config.secretKey)
@@ -225,22 +226,40 @@ func (f *Fetcher) Fetch() {
 
 	client := http.Client{Transport: f.transport}
 	res, err := client.Do(req)
-	if err != nil {
+	if err != nil || res.StatusCode != http.StatusOK {
+		if err == nil {
+			err = errors.New("the Bearer platform rejected the config fetch")
+		}
 		f.logger.Warn().Msgf("failed remote config from Bearer: %v", err)
-		return
+		return err
 	}
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		f.logger.Warn().Msgf("reading remote config received from Bearer: %v", err)
-		return
+		return err
 	}
 	remoteConf := Description{}
 	if err := json.Unmarshal(body, &remoteConf); err != nil {
 		f.logger.Warn().Msgf("decoding remote config received from Bearer: %v", err)
-		return
+		return err
+	}
+	if len(remoteConf.Error) > 0 {
+		message := "the Bearer platform rejected the config request"
+		errMessage, ok := remoteConf.Error[`message`]
+		if ok {
+			f.logger.Warn().Str(`config error message`, errMessage).Msg(message)
+		} else {
+			j, err := json.Marshal(remoteConf.Error)
+			if err != nil {
+				f.logger.Warn().RawJSON(`config response`, body).Msg(message)
+			}
+			f.logger.Warn().RawJSON(`config error`, j).Msg(message)
+		}
+		return errors.New(message)
 	}
 	f.config.UpdateFromDescription(remoteConf)
+	return nil
 }
 
 // Stop deactivates the fetcher background operation.
@@ -265,7 +284,7 @@ func (f *Fetcher) Start() {
 				return
 			case <-f.ticker.C:
 				f.logger.Debug().Msgf(`Background config fetch`)
-				f.Fetch()
+				_ = f.Fetch()
 			}
 		}
 	}()

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -42,6 +43,9 @@ type Agent struct {
 // In most usage scenarios, you will only use a single Agent in a given application,
 // and pass a zerolog.Logger instance for the logger.
 func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent, error) {
+	if !config.IsSecretKeyWellFormed(secretKey) {
+		return nil, fmt.Errorf("secret key %s is not well-formed", secretKey)
+	}
 	a := Agent{
 		baseTransport: unwrapTransport(http.DefaultClient.Transport),
 		Dispatcher:    events.NewDispatcher(),
@@ -51,14 +55,18 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 	a.SetLogger(logger)
 
 	c, err := config.NewConfig(
+		secretKey,
 		unwrapTransport(http.DefaultClient.Transport),
 		a.logger,
 		Version,
-		append(opts, config.WithSecretKey(secretKey))...)
+		opts...)
 	if err != nil {
 		return nil, fmt.Errorf("configuring new agent: %w", err)
 	}
 	a.config = c
+	if c.IsDisabled() {
+		return &a, errors.New(`remote config unavailable`)
+	}
 	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
 		c.SecretKey(), c.RuntimeEnvironmentType(),
 		a.DefaultTransport(), a.Logger())
@@ -100,6 +108,9 @@ func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
 // clients, as well as the runtime library DefaultClient, with Bearer
 // instrumentation.
 func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
+	if a.config.IsDisabled() {
+		return
+	}
 	if a.transports == nil {
 		a.transports = make(transportMap)
 	}
@@ -135,10 +146,21 @@ func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
 // log.SetOutput(DefaultAgent.Logger()).
 var DefaultAgent *Agent
 
-// TODO This is just a placeholder for future logic.
-func close() error {
-	log.Fatal(`End of Bearer agent operation`)
-	return nil
+// uninitializedClose provides a final warning that the Bearer agent was not
+// initialized during the application execution.
+func uninitializedClose(err error) func () error {
+	return func () error {
+		log.Println(err)
+		return err
+	}
+}
+
+// XXX A placeholder for future logic, as in #BG-14 prevent early termination.
+func close(a *Agent) func () error {
+	return func() error {
+		log.Printf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter)
+		return nil
+	}
 }
 
 // Init initializes the Bearer agent:
@@ -149,11 +171,13 @@ func close() error {
 func Init(secretKey string, opts ...config.Option) func() error {
 	var err error
 	DefaultAgent, err = NewAgent(secretKey, os.Stderr, opts...)
-	if err != nil {
-		return close
+	if err != nil || DefaultAgent.config == nil || DefaultAgent.config.IsDisabled() {
+		err = fmt.Errorf("did not initialize Bearer agent: %w", err)
+		log.Println(err)
+		return uninitializedClose(err)
 	}
 	DefaultAgent.DecorateClientTransports()
-	return close
+	return close(DefaultAgent)
 }
 
 // Provider provides the default agent listeners:

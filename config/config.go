@@ -86,13 +86,14 @@ func (c *Config) SecretKey() string {
 	return c.secretKey
 }
 
-func isSecretKeyWellFormed(k string) bool {
-	return SecretKeyRegex.MatchString(k)
+// IsSecretKeyWellFormed verifies whether the secret key matches the expected format.
+func IsSecretKeyWellFormed(secretKey string) bool {
+	return SecretKeyRegex.MatchString(secretKey)
 }
 
 // IsDisabled is a getter for isDisabled, also checking whether the key is plausible.
 func (c *Config) IsDisabled() bool {
-	return c.isDisabled || !isSecretKeyWellFormed(c.secretKey)
+	return c == nil || c.isDisabled || !IsSecretKeyWellFormed(c.secretKey)
 }
 
 // RuntimeEnvironmentType is a getter for runtimeEnvironmentType.
@@ -146,10 +147,11 @@ type Option func(*Config) error
 // NewConfig is the default Config constructor: it builds a configuration from
 // the builtin agent defaults, the environment, the Bearer platform configuration
 // and any optional Option values passed by the caller.
-func NewConfig(transport http.RoundTripper, logger *zerolog.Logger, version string, opts ...Option) (*Config, error) {
+func NewConfig(secretKey string, transport http.RoundTripper, logger *zerolog.Logger, version string, opts ...Option) (*Config, error) {
 	alwaysOn := []Option{
 		OptionDefaults,
 		OptionEnvironment,
+		WithSecretKey(secretKey),
 		WithRemote(transport, logger, version), // Sets Fetcher.
 	}
 
@@ -161,6 +163,8 @@ func NewConfig(transport http.RoundTripper, logger *zerolog.Logger, version stri
 			return nil, err
 		}
 	}
-	c.fetcher.Start()
+	if !c.IsDisabled() {
+		c.fetcher.Start()
+	}
 	return c, nil
 }

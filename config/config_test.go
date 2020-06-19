@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"io/ioutil"
+	"os"
 	"reflect"
 	"regexp"
 	"testing"
@@ -20,11 +21,11 @@ func z() *zerolog.Logger {
 }
 
 func TestConfig_Default(t *testing.T) {
-	actual, err := config.NewConfig(nil, z(), agent.Version, config.WithSecretKey(agent.ExampleWellFormedInvalidKey))
+	actual, err := config.NewConfig(agent.ExampleWellFormedInvalidKey, nil, z(), agent.Version)
 	if err != nil {
 		t.Errorf("failed building default config")
 	}
-	if actual.IsDisabled() {
+	if !actual.IsDisabled() {
 		t.Errorf("incorrect default for isDisabled")
 	}
 	if actual.RuntimeEnvironmentType() != config.DefaultRuntimeEnvironmentType {
@@ -37,7 +38,7 @@ func TestConfig_Default(t *testing.T) {
 
 func TestConfigInvalidSecretKey(t *testing.T) {
 	const key = "invalid key"
-	actual, err := config.NewConfig(nil, z(), agent.Version, config.WithSecretKey(key))
+	actual, err := config.NewConfig(key, nil, z(), agent.Version)
 	if err == nil {
 		t.Errorf("failed building default config")
 	}
@@ -47,21 +48,21 @@ func TestConfigInvalidSecretKey(t *testing.T) {
 }
 
 func TestConfig_WithoutKey(t *testing.T) {
-	actual, err := config.NewConfig(nil, z(), agent.Version)
+	os.Setenv(config.SecretKeyName, agent.ExampleWellFormedInvalidKey)
+	actual, err := config.NewConfig(``, nil, z(), agent.Version)
 	if err != nil {
-		t.Errorf("failed building config without a secret key")
+		t.Fatal("failed building config without a secret key")
 	}
 	if !actual.IsDisabled() {
 		t.Errorf("incorrect default for isDisabled without a secret key")
 	}
-	if actual.SecretKey() != "" {
+	if actual.SecretKey() != agent.ExampleWellFormedInvalidKey {
 		t.Errorf("incorrect default for missing secretKey")
 	}
 }
 
 func TestConfig_Disabled(t *testing.T) {
-	actual, err := config.NewConfig(nil, z(), agent.Version,
-		config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
+	actual, err := config.NewConfig(agent.ExampleWellFormedInvalidKey, nil, z(), agent.Version,
 		config.OptionDisabled)
 	if err != nil {
 		t.Errorf("failed building disabled config")
@@ -73,8 +74,7 @@ func TestConfig_Disabled(t *testing.T) {
 
 func TestConfig_WithRuntimeEnvironmentType(t *testing.T) {
 	const expected = "production"
-	c, err := config.NewConfig(nil, z(), agent.Version,
-		config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
+	c, err := config.NewConfig(agent.ExampleWellFormedInvalidKey, nil, z(), agent.Version,
 		config.WithRuntimeEnvironmentType(expected),
 	)
 	if err != nil {
@@ -103,8 +103,7 @@ func TestConfig_WithSensitiveKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := config.NewConfig(nil, z(), agent.Version,
-				config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
+			c, err := config.NewConfig(agent.ExampleWellFormedInvalidKey, nil, z(), agent.Version,
 				config.WithSensitiveKeys(tt.keys),
 			)
 			if err != nil && !tt.wantFail {
@@ -150,8 +149,7 @@ func TestConfig_WithSensitiveRegexes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			agent, err := config.NewConfig(nil, z(), agent.Version,
-				config.WithSecretKey(agent.ExampleWellFormedInvalidKey),
+			agent, err := config.NewConfig(agent.ExampleWellFormedInvalidKey, nil, z(), agent.Version,
 				config.WithSensitiveRegexps(tt.regexps),
 			)
 			if err != nil && !tt.wantFail {

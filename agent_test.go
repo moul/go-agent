@@ -25,6 +25,9 @@ func TestNewAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a, _ := NewAgent(ExampleWellFormedInvalidKey, ioutil.Discard)
+			if a == nil && !tt.wantErr {
+				t.Fatal("got unexpected nil agent")
+			}
 
 			// Set up test server.
 			ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -61,6 +64,25 @@ func TestNewAgent(t *testing.T) {
 			defer res.Body.Close()
 			if actual, err := ioutil.ReadAll(res.Body); err != nil || string(actual) != expected {
 				t.Errorf("Got incorrect response: %s instead of %s", actual, expected)
+			}
+		})
+	}
+}
+
+func TestInit(t *testing.T) {
+	tests := []struct {
+		name      string
+		secretKey string
+		wantErr   bool
+	}{
+		{"well-formed invalid key", ExampleWellFormedInvalidKey, true},
+		{"ill-formed key", "foo", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Init(tt.secretKey);
+			if err := got(); (err != nil) != tt.wantErr {
+				t.Errorf("Init()() = %v", err)
 			}
 		})
 	}
