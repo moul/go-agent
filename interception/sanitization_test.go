@@ -1,4 +1,4 @@
-package interception
+package interception_test
 
 import (
 	"context"
@@ -8,53 +8,51 @@ import (
 	"testing"
 
 	"github.com/bearer/go-agent/events"
+	"github.com/bearer/go-agent/interception"
 )
 
 const (
 	testURL = `https://example.com`
 	topic   = `test_topic`
+	card    = `fake370057577167325card`
+	mail    = `john.doe@example.com`
 )
 
+func newSanitizationProvider() *interception.SanitizationProvider {
+	keysREs := []*regexp.Regexp{interception.DefaultSensitiveKeys}
+	valueREs := []*regexp.Regexp{interception.DefaultSensitiveData}
+	p := &interception.SanitizationProvider{keysREs, valueREs}
+	return p
+}
+
 func TestSanitizationProvider_SanitizeQueryAndPaths(t *testing.T) {
-	type fields struct {
-		SensitiveKeys    []string
-		SensitiveRegexps []string
-	}
 	tests := []struct {
 		name              string
-		fields            fields
 		requestURL        string
 		resReqURL         string // `` means reuse the request in response.
 		expectedReqURL    string
 		expectedResReqURL string
 		wantErr           bool
 	}{
-		{`happy default query+path`, fields{nil, nil},
-			`https://example.com/card/fake370057577167325card?client_id=secretname&email=john.doe@example.com&foo=bar`,
+		{`happy default query+path`,
+			`https://example.com/card/` + card + `?client_id=secretname&email=john.doe@example.com&foo=bar`,
 			``,
 			`https://example.com/card/fake%5BFILTERED%5Dcard?client_id=%5BFILTERED%5D&email=%5BFILTERED%5D&foo=bar`,
 			`https://example.com/card/fake%5BFILTERED%5Dcard?client_id=%5BFILTERED%5D&email=%5BFILTERED%5D&foo=bar`,
 			false},
-		{`happy custom response request query+path`, fields{nil, nil},
+		{`happy custom response request query+path`,
 			`https://example.com/card/fake370057577167325amex?client_id=secretname&email=john.doe@example.com&foo=bar`,
 			`https://example.com/card/fake373058337477712visa?client_id=secretname&email=john.doe@example.com&foo=bar`,
 			`https://example.com/card/fake%5BFILTERED%5Damex?client_id=%5BFILTERED%5D&email=%5BFILTERED%5D&foo=bar`,
 			`https://example.com/card/fake%5BFILTERED%5Dvisa?client_id=%5BFILTERED%5D&email=%5BFILTERED%5D&foo=bar`,
 			false},
-		{`sad bad URL`, fields{nil, nil},
+		{`sad bad URL`,
 			// Invalid IPv6 address and missing scheme separator.
 			`http//2020:609:241:98::80:10/authentication/login/`, ``, ``, ``, true},
 	}
+	p := newSanitizationProvider()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keysREs := []*regexp.Regexp{DefaultSensitiveKeys}
-			for _, re := range tt.fields.SensitiveKeys {
-				keysREs = append(keysREs, regexp.MustCompile(re))
-			}
-			valueREs := []*regexp.Regexp{DefaultSensitiveData}
-			for _, re := range tt.fields.SensitiveRegexps {
-				valueREs = append(valueREs, regexp.MustCompile(re))
-			}
 
 			req, err := http.NewRequest(``, tt.requestURL, nil)
 			if err != nil {
@@ -70,7 +68,6 @@ func TestSanitizationProvider_SanitizeQueryAndPaths(t *testing.T) {
 			}
 			res.Request = resReq
 
-			p := SanitizationProvider{keysREs, valueREs}
 			e := events.NewEvent(topic).SetRequest(req).SetResponse(res)
 			err = p.SanitizeQueryAndPaths(context.Background(), e)
 			if (err != nil) != tt.wantErr {
@@ -98,12 +95,12 @@ func TestSanitizationProvider_Listeners(t *testing.T) {
 		topic   string
 		wantLen int
 	}{
-		{`happy`, string(TopicReport), 3},
+		{`happy`, string(interception.TopicReport), 5},
 		{`sad`, topic, 0},
 	}
+	p := newSanitizationProvider()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := SanitizationProvider{}
 			e := events.NewEvent(tt.topic)
 			if got := len(p.Listeners(e)); got != tt.wantLen {
 				t.Errorf(`Listeners() = %v, want %v`, got, tt.wantLen)
@@ -124,23 +121,21 @@ func TestSanitizationProvider_SanitizeRequestHeaders(t *testing.T) {
 	}{
 		{`happy`, `foo`, []string{`bar`}, `baz`, []string{`qux`}, []string{`bar`}, []string{`qux`}},
 		{`happy same`, `foo`, []string{`bar`}, ``, nil, []string{`bar`}, []string{`bar`}},
-		{`sad name`, `authorization`, []string{`Basic Dartmouth`}, ``, nil, []string{Filtered}, []string{Filtered}},
+		{`sad name`, `authorization`, []string{`Basic Dartmouth`}, ``, nil, []string{interception.Filtered}, []string{interception.Filtered}},
 		{`sad single value`,
 			`bankkarte`, []string{`fake370057577167325card`}, ``, nil,
-			[]string{`fake` + Filtered + `card`},
-			[]string{`fake` + Filtered + `card`},
+			[]string{`fake` + interception.Filtered + `card`},
+			[]string{`fake` + interception.Filtered + `card`},
 		},
 		{`mixed`, `tarjeta-de-credito`,
 			[]string{`not a card`, `fake370057577167325card`, `nor that one`}, ``, nil,
-			[]string{`not a card`, `fake` + Filtered + `card`, `nor that one`},
-			[]string{`not a card`, `fake` + Filtered + `card`, `nor that one`},
+			[]string{`not a card`, `fake` + interception.Filtered + `card`, `nor that one`},
+			[]string{`not a card`, `fake` + interception.Filtered + `card`, `nor that one`},
 		},
 	}
+	p := newSanitizationProvider()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keysREs := []*regexp.Regexp{DefaultSensitiveKeys}
-			valueREs := []*regexp.Regexp{DefaultSensitiveData}
-
 			req, _ := http.NewRequest(``, testURL, nil)
 			for _, v := range tt.reqValues {
 				req.Header.Add(tt.reqName, v)
@@ -156,7 +151,6 @@ func TestSanitizationProvider_SanitizeRequestHeaders(t *testing.T) {
 			}
 			res.Request = resReq
 
-			p := SanitizationProvider{keysREs, valueREs}
 			e := events.NewEvent(topic).SetRequest(req).SetResponse(res)
 			err := p.SanitizeRequestHeaders(context.Background(), e)
 			if err != nil {
@@ -180,27 +174,24 @@ func TestSanitizationProvider_SanitizeResponseHeaders(t *testing.T) {
 		expectedValues []string
 	}{
 		{`happy`, `foo`, []string{`bar`}, []string{`bar`}},
-		{`sad name`, `authorization`, []string{`Basic Dartmouth`}, []string{Filtered}},
+		{`sad name`, `authorization`, []string{`Basic Dartmouth`}, []string{interception.Filtered}},
 		{`sad single value`, `bankkarte`,
 			[]string{`fake370057577167325card`},
-			[]string{`fake` + Filtered + `card`},
+			[]string{`fake` + interception.Filtered + `card`},
 		},
 		{`sad mix`, `tarjeta-de-credito`,
 			[]string{`not a card`, `fake370057577167325card`, `nor that one`},
-			[]string{`not a card`, `fake` + Filtered + `card`, `nor that one`},
+			[]string{`not a card`, `fake` + interception.Filtered + `card`, `nor that one`},
 		},
 	}
 	for _, tt := range tests {
+		p := newSanitizationProvider()
 		t.Run(tt.name, func(t *testing.T) {
-			keysREs := []*regexp.Regexp{DefaultSensitiveKeys}
-			valueREs := []*regexp.Regexp{DefaultSensitiveData}
-
 			res := &http.Response{Header: make(http.Header, 1)}
 			for _, v := range tt.Values {
 				res.Header.Add(tt.Name, v)
 			}
 
-			p := SanitizationProvider{keysREs, valueREs}
 			e := events.NewEvent(topic).SetResponse(res)
 			err := p.SanitizeResponseHeaders(context.Background(), e)
 			if err != nil {
@@ -212,6 +203,97 @@ func TestSanitizationProvider_SanitizeResponseHeaders(t *testing.T) {
 				t.Errorf(`sanitizeResponseHeaders for %s expected %v, got %v`, tt.Name, tt.expectedValues, actualValues)
 			}
 
+		})
+	}
+}
+
+func TestSanitizationProvider_sanitize(t *testing.T) {
+	const card = `fake` + interception.Filtered + `card`
+
+	tests := []struct {
+		name     string
+		x        interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		{`untouched map[string]string`, map[string]string{`foo`: `bar`}, map[string]string{`foo`: `bar`}, false},
+		{`filtered key`, map[string]interface{}{`secret`: `bar`}, map[string]interface{}{`secret`: interception.Filtered}, false},
+		{`fully filtered map value`, map[string]interface{}{`foo`: mail}, map[string]interface{}{`foo`: interception.Filtered}, false},
+		{`partially filtered map value`, map[string]interface{}{`foo`: card}, map[string]interface{}{`foo`: `fake` + interception.Filtered + `card`}, false},
+		{`[]string, filtered`, []string{mail}, []string{interception.Filtered}, false},
+	}
+	p := newSanitizationProvider()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := interception.NewWalker(tt.x)
+			var accu interface{}
+
+			if err := w.Walk(&accu, p.BodySanitizer); (err != nil) != tt.wantErr {
+				t.Errorf("sanitize() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(tt.x, tt.expected) {
+				t.Errorf("sanitize got %v, wanted %v", tt.x, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSanitizationProvider_SanitizeRequestBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		{`untouched map[string]string`, map[string]string{`foo`: `bar`}, map[string]string{`foo`: `bar`}, false},
+		{`filtered key`, map[string]interface{}{`secret`: `bar`}, map[string]interface{}{`secret`: interception.Filtered}, false},
+		{`fully filtered map value`, map[string]interface{}{`foo`: mail}, map[string]interface{}{`foo`: interception.Filtered}, false},
+		{`partially filtered map value`, map[string]interface{}{`foo`: card}, map[string]interface{}{`foo`: `fake` + interception.Filtered + `card`}, false},
+		{`[]string, filtered`, []string{mail}, []string{interception.Filtered}, false},
+	}
+	p := newSanitizationProvider()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &interception.ReportEvent{
+				BodiesEvent: interception.BodiesEvent{RequestBody: tt.body},
+			}
+			if err := p.SanitizeRequestBody(context.Background(), e); (err != nil) != tt.wantErr {
+				t.Errorf("SanitizeRequestBody() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			actual, expected := e.RequestBody, tt.expected
+			if !reflect.DeepEqual(actual, expected) {
+				t.Errorf("SanitizeRequestBody got %v expected %v", e.RequestBody, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSanitizationProvider_SanitizeResponseBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		{`untouched map[string]string`, map[string]string{`foo`: `bar`}, map[string]string{`foo`: `bar`}, false},
+		{`filtered key`, map[string]interface{}{`secret`: `bar`}, map[string]interface{}{`secret`: interception.Filtered}, false},
+		{`fully filtered map value`, map[string]interface{}{`foo`: mail}, map[string]interface{}{`foo`: interception.Filtered}, false},
+		{`partially filtered map value`, map[string]interface{}{`foo`: card}, map[string]interface{}{`foo`: `fake` + interception.Filtered + `card`}, false},
+		{`[]string, filtered`, []string{mail}, []string{interception.Filtered}, false},
+	}
+	p := newSanitizationProvider()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &interception.ReportEvent{
+				BodiesEvent: interception.BodiesEvent{ResponseBody: tt.body},
+			}
+			if err := p.SanitizeResponseBody(context.Background(), e); (err != nil) != tt.wantErr {
+				t.Errorf("SanitizeResponseBody() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			actual, expected := e.ResponseBody, tt.expected
+			if !reflect.DeepEqual(actual, expected) {
+				t.Errorf("SanitizeResponseBody got %v expected %v", e.ResponseBody, tt.expected)
+			}
 		})
 	}
 }

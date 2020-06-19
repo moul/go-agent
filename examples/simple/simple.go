@@ -47,8 +47,8 @@ func main() {
 		// request and response bodies: since go supports fully multiplexed HTTP and
 		// HTTP/2, the request body may not be entirely available when the request
 		// starts, but only when the response ends.
-		defer res.Body.Close()
 		body, err := ioutil.ReadAll(res.Body)
+		res.Body.Close()
 		if err != nil {
 			log.Fatalf("reading API response: %v", err)
 		}

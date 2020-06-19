@@ -3,7 +3,6 @@ package interception
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -101,6 +100,20 @@ func NewConnectEvent(url *url.URL) *ConnectEvent {
 	return e
 }
 
+// NewReportEvent builds a ReportEvent, empty but for logLevel, stage, and error.
+func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
+	return &ReportEvent{
+		BodiesEvent: BodiesEvent{
+			apiEvent: apiEvent{
+				EventBase: events.EventBase{},
+				logLevel:  logLevel,
+			},
+			error: err,
+		},
+		Stage: stage,
+	}
+}
+
 // RequestEvent is the type of events dispatched at the TopicRequest stages.
 type RequestEvent struct {
 	apiEvent
@@ -126,8 +139,10 @@ func (ResponseEvent) Topic() events.Topic {
 // BodiesEvent is the type of events dispatched at the TopicBodies stage.
 type BodiesEvent struct {
 	apiEvent
-
-	RequestBody, ResponseBody io.ReadCloser
+	error
+	readTimestamp             time.Time
+	RequestBody, ResponseBody interface{}
+	RequestSha, ResponseSha   string
 }
 
 // Topic is part of the Event interface.
@@ -137,9 +152,8 @@ func (BodiesEvent) Topic() events.Topic {
 
 // ReportEvent is emitted to publish a call proxy.ReportLog.
 type ReportEvent struct {
-	apiEvent
+	BodiesEvent
 	proxy.Stage
-	Error  error
 	T0, T1 time.Time
 }
 

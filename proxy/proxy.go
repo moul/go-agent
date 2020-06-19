@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -266,7 +267,12 @@ func (s *Sender) WriteLog(rl ReportLog) {
 		s.Warn().Err(err).Msgf(`transmitting log %d to the report server.`, s.Counter)
 	} else {
 		if res.StatusCode < http.StatusContinue || res.StatusCode >= http.StatusBadRequest {
-			s.Warn().RawJSON("report", body).Msgf(`got response %d %s transmitting log %d to the report server.`, res.StatusCode, res.Status, s.Counter)
+			logsBody, err := ioutil.ReadAll(res.Body)
+			s.Warn().
+				RawJSON("report", body).
+				Err(err).
+				RawJSON("logs body", logsBody).
+				Msgf(`got response %d %s transmitting log %d to the report server.`, res.StatusCode, res.Status, s.Counter)
 			return
 		}
 		s.Debug().

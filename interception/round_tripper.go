@@ -125,56 +125,71 @@ func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, re
 	return e.LogLevel(), nil
 }
 
+func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) *ReportEvent {
+	rev := NewReportEvent(logLevel, proxy.StageBodies, err)
+	rev.BodiesEvent = BodiesEvent{error: err}
+
+	rev.SetLogLevel(logLevel)
+	rev.SetRequest(request).SetResponse(response)
+	_, rev.error = rt.Dispatch(ctx, &rev.BodiesEvent)
+	if rev.error != nil {
+		return rev
+	}
+	if rev.error = ctx.Err(); rev.error != nil {
+		return rev
+	}
+	rev.T1 = rev.readTimestamp
+	return rev
+}
+
 // RoundTrip implements the http.RoundTripper interface.
 func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	var logLevel LogLevel
+	logLevel := Detected
 	var err error
-	var e *ReportEvent
-	ctx := request.Context()
-	t0 := time.Now()
+	var rev *ReportEvent
+	var (
+		// Ensure valid timestamps even on early returns.
+		t0 = time.Now()
+		t1 = t0
+	)
+
+	// XXX To add a platform-driven timeout, use context.WithTimeout here.
+	ctx := context.WithValue(request.Context(), LogLevelKey, logLevel)
+
 	defer func() {
-		e.T0 = t0
-		e.T1 = time.Now()
-		_, _ = rt.Dispatch(ctx, e)
+		rev.T0 = t0
+		// If the t1 reset was not reached, us the time spent in the agent.
+		if t1 == t0 {
+			t1 = time.Now()
+		}
+		rev.T1 = t1
+		_, _ = rt.Dispatch(ctx, rev)
 	}()
 
 	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
-		e = &ReportEvent{
-			apiEvent: apiEvent{
-				EventBase: events.EventBase{},
-				logLevel:  logLevel,
-			},
-			Stage: proxy.StageConnect,
-			Error: err,
-		}
-		e.apiEvent.SetRequest(request)
+		rev = NewReportEvent(logLevel, proxy.StageConnect, err)
+		rev.SetRequest(request)
 		return nil, err
 	}
 
 	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
-		e = &ReportEvent{
-			apiEvent: apiEvent{
-				EventBase: events.EventBase{},
-				logLevel:  logLevel,
-			},
-			Stage: proxy.StageRequest,
-			Error: err,
-		}
-		e.apiEvent.EventBase.SetRequest(request)
+		rev = NewReportEvent(logLevel, proxy.StageRequest, err)
+		rev.SetRequest(request)
 		return nil, err
 	}
 
+	// Perform and time the underlying API call, without body capture.
+	t0 = time.Now()
 	response, err := rt.Underlying.RoundTrip(request)
-	_, err = rt.stageResponse(ctx, logLevel, request, response, err)
-	e = &ReportEvent{
-		apiEvent: apiEvent{
-			EventBase: events.EventBase{},
-			logLevel:  logLevel,
-		},
-		Stage: proxy.StageResponse,
-		Error: err,
-	}
-	e.SetRequest(request).SetResponse(response)
+	t1 = time.Now()
 
-	return response, err
+	if logLevel, err = rt.stageResponse(ctx, logLevel, request, response, err); err != nil {
+		rev = NewReportEvent(logLevel, proxy.StageResponse, err)
+		rev.SetRequest(request).SetResponse(response)
+		return rev.Response(), err
+	}
+
+	// No need to check logLevel here: if we reached that point, logLevel is All.
+	rev = rt.stageBodies(ctx, logLevel, request, response, err)
+	return rev.Response(), rev.error
 }
