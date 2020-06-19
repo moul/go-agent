@@ -5,13 +5,9 @@ package agent
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os"
 	"sync"
-
-	"github.com/rs/zerolog"
 
 	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/events"
@@ -33,7 +29,6 @@ type Agent struct {
 	m sync.Mutex
 	events.Dispatcher
 	SecretKey     string
-	logger        *zerolog.Logger
 	config        *config.Config
 	baseTransport http.RoundTripper
 	transports    transportMap
@@ -43,8 +38,8 @@ type Agent struct {
 // NewAgent is the Agent constructor.
 //
 // In most usage scenarios, you will only use a single Agent in a given application,
-// and pass a zerolog.Logger instance for the logger.
-func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent, error) {
+// and pass a config.WithLogger(some *zerolog.Logger) config.Option.
+func NewAgent(secretKey string, opts ...config.Option) (*Agent, error) {
 	if !config.IsSecretKeyWellFormed(secretKey) {
 		return nil, fmt.Errorf("secret key %s is not well-formed", secretKey)
 	}
@@ -54,21 +49,21 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 		SecretKey:     secretKey,
 		transports:    make(transportMap),
 	}
-	a.SetLogger(logger)
 
 	c, err := config.NewConfig(
 		secretKey,
 		unwrapTransport(http.DefaultClient.Transport),
-		a.logger,
 		Version,
 		opts...)
 	if err != nil {
 		return nil, fmt.Errorf("configuring new agent: %w", err)
 	}
+
 	a.config = c
 	if c.IsDisabled() {
 		return &a, errors.New(`remote config unavailable`)
 	}
+
 	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
 		c.SecretKey(), c.RuntimeEnvironmentType(),
 		a.DefaultTransport(), a.Logger())
@@ -78,7 +73,7 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 	a.Dispatcher.AddProviders(interception.TopicConnect, events.ListenerProviderFunc(a.Provider), dcrp)
 	a.Dispatcher.AddProviders(interception.TopicRequest, dcrp)
 	a.Dispatcher.AddProviders(interception.TopicResponse, dcrp)
-	a.Dispatcher.AddProviders(interception.TopicBodies, interception.BodyParsingProvider{},dcrp)
+	a.Dispatcher.AddProviders(interception.TopicBodies, interception.BodyParsingProvider{}, dcrp)
 	a.Dispatcher.AddProviders(interception.TopicReport,
 		interception.SanitizationProvider{
 			SensitiveKeys:    a.config.SensitiveKeys(),
@@ -150,15 +145,15 @@ var DefaultAgent *Agent
 
 // uninitializedClose provides a final warning that the Bearer agent was not
 // initialized during the application execution.
-func uninitializedClose(err error) func () error {
-	return func () error {
+func uninitializedClose(err error) func() error {
+	return func() error {
 		log.Println(err)
 		return err
 	}
 }
 
 // XXX A placeholder for future logic, as in #BG-14 prevent early termination.
-func close(a *Agent) func () error {
+func close(a *Agent) func() error {
 	return func() error {
 		log.Printf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter)
 		return nil
@@ -172,7 +167,7 @@ func close(a *Agent) func () error {
 //     app, including flushing the list of records not yet transmitted to Bearer.
 func Init(secretKey string, opts ...config.Option) func() error {
 	var err error
-	DefaultAgent, err = NewAgent(secretKey, os.Stderr, opts...)
+	DefaultAgent, err = NewAgent(secretKey, opts...)
 	if err != nil || DefaultAgent.config == nil || DefaultAgent.config.IsDisabled() {
 		err = fmt.Errorf("did not initialize Bearer agent: %w", err)
 		log.Println(err)

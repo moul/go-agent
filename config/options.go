@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -15,6 +16,8 @@ import (
 
 // OptionDefaults is an always-on Option loading built-in values.
 var OptionDefaults Option = func(c *Config) error {
+	defaultLogger := zerolog.New(os.Stderr)
+	c.Logger = &defaultLogger
 	c.runtimeEnvironmentType = DefaultRuntimeEnvironmentType
 	c.configEndpoint = DefaultConfigEndpoint
 	c.ReportEndpoint = DefaultReportEndpoint
@@ -69,11 +72,26 @@ func WithFilters(fs filters.FilterMap) Option {
 	}
 }
 
-// WithRemote is an always-on functional Option loading values from Bearer platform configuration.
-func WithRemote(transport http.RoundTripper, logger *zerolog.Logger, version string) Option {
+// WithLogger is a functional Option for the logger.
+func WithLogger(logger io.Writer) Option {
 	return func(c *Config) error {
-		c.logger = logger
-		c.fetcher = NewFetcher(transport, logger, version, c)
+		zl, ok := logger.(*zerolog.Logger)
+		if !ok {
+			l := zerolog.New(logger)
+			zl = &l
+		}
+		if c != nil {
+			c.Logger = zl
+			return nil
+		}
+		return errors.New(`cannot set logger on nil Config`)
+	}
+}
+
+// WithRemote is an always-on functional Option loading values from Bearer platform configuration.
+func WithRemote(transport http.RoundTripper, version string) Option {
+	return func(c *Config) error {
+		c.fetcher = NewFetcher(transport, version, c)
 		err := c.fetcher.Fetch()
 		if err != nil {
 			c.isDisabled = true
