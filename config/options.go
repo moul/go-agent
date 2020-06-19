@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/bearer/go-agent/filters"
+	"github.com/bearer/go-agent/interception"
 )
 
 // OptionDefaults is an always-on Option loading built-in values.
@@ -39,7 +40,7 @@ var OptionEnvironment Option = func(c *Config) error {
 }
 
 // WithDataCollectionRules is an Option configuring the data collection rules.
-func WithDataCollectionRules(dcrs []DataCollectionRule) Option {
+func WithDataCollectionRules(dcrs []*interception.DataCollectionRule) Option {
 	return func(c *Config) error {
 		c.dataCollectionRules = dcrs
 		return nil

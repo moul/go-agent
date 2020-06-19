@@ -1,4 +1,9 @@
 
+generate: interception/log_level_names.go filters/set_names.go
+
+interception/log_level_names.go: interception/log_level.go
+	go generate ./...
+
 filters/set_names.go: filters/set.go
 	go generate ./...
 

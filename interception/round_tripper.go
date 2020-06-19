@@ -8,16 +8,14 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/events"
 )
 
 // RoundTripper is the instrumented implementation of http.RoundTripper.
 //
-// It triggers events for the Connect, Request, and Response stages.
+// It triggers events for the TopicConnect, TopicRequest, and TopicResponse stages.
 type RoundTripper struct {
 	events.Dispatcher
-	*config.Config
 	Underlying http.RoundTripper
 }
 
@@ -79,54 +77,60 @@ func RFCListener(_ context.Context, e events.Event) error {
 	return nil
 }
 
-// stageConnect implements the Bearer Connect stage.
-func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) error {
+// stageConnect implements the Bearer TopicConnect stage.
+func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) (LogLevel, error) {
 	e := NewConnectEvent(url)
 	_, err := rt.Dispatch(ctx, e)
 	if err != nil {
-		return err
+		return e.LogLevel(), err
 	}
 	if err = ctx.Err(); err != nil {
-		return err
+		return e.LogLevel(), err
 	}
-	return nil
+	return e.LogLevel(), nil
 }
 
-func (rt *RoundTripper) stageRequest(request *http.Request) error {
+func (rt *RoundTripper) stageRequest(logLevel LogLevel, request *http.Request) (LogLevel, error) {
 	ctx := request.Context()
-	_, err := rt.Dispatch(ctx, NewRequestEvent(request))
+	e := &RequestEvent{}
+	e.SetLogLevel(logLevel)
+	e.SetRequest(request)
+	_, err := rt.Dispatch(ctx, e)
 	if err != nil {
-		return err
+		return e.LogLevel(), err
 	}
 	if err = ctx.Err(); err != nil {
-		return err
+		return e.LogLevel(), err
 	}
 
-	return nil
+	return e.LogLevel(), nil
 }
 
-func (rt *RoundTripper) stageResponse(ctx context.Context, response *http.Response) error {
-	_, err := rt.Dispatch(ctx, &ResponseEvent{Response: response})
+func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response) (LogLevel, error) {
+	e := &ResponseEvent{}
+	e.SetRequest(request).SetResponse(response)
+	_, err := rt.Dispatch(ctx, e)
 	if err != nil {
-		return err
+		return e.LogLevel(), err
 	}
 	if err = ctx.Err(); err != nil {
-		return err
+		return e.LogLevel(), err
 	}
 
-	return nil
+	return e.LogLevel(), nil
 }
 
 // RoundTrip implements the http.RoundTripper interface.
 func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	var logLevel LogLevel
 	var err error
 	ctx := request.Context()
 
-	if err = rt.stageConnect(ctx, request.URL); err != nil {
+	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
 		return nil, err
 	}
 
-	if err = rt.stageRequest(request); err != nil {
+	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
 		return nil, err
 	}
 
@@ -135,6 +139,6 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		return response, err
 	}
 
-	err = rt.stageResponse(ctx, response)
+	_, err = rt.stageResponse(ctx, logLevel, request, response)
 	return response, err
 }
