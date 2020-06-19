@@ -3,7 +3,6 @@ package examples
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 )
 
@@ -47,12 +46,3 @@ func ShowGogsOrg(body []byte) {
 	}, "\n"))
 }
 
-// MustParse builds a URL instance from a known-good URL string, panicking it
-// the URL string is not well-formed.
-func MustParse(rawURL string) *url.URL {
-	maybeURL, err := url.Parse(rawURL)
-	if err != nil {
-		panic(err)
-	}
-	return maybeURL
-}

@@ -17,8 +17,8 @@ import (
 var OptionDefaults Option = func(c *Config) error {
 	c.runtimeEnvironmentType = DefaultRuntimeEnvironmentType
 	c.configEndpoint = DefaultConfigEndpoint
-	c.reportHost = DefaultReportHost
-	c.reportOutstanding = DefaultReportOutstanding
+	c.ReportEndpoint = DefaultReportEndpoint
+	c.ReportOutstanding = DefaultReportOutstanding
 	c.fetchInterval = DefaultConfigFetchInterval
 	return nil
 }

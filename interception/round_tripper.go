@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/bearer/go-agent/events"
+	"github.com/bearer/go-agent/filters"
 )
 
 // RoundTripper is the instrumented implementation of http.RoundTripper.
@@ -50,12 +52,12 @@ func RFCListener(_ context.Context, e events.Event) error {
 	sPort := url.Port()
 	if sPort == `` {
 		// Cf. Go runtime: src/net/http/transport.go
-		portMap := map[string]string{
+		PortMap := map[string]string{
 			"http":   "80",
 			"https":  "443",
 			"socks5": "1080",
 		}
-		sPort, ok = portMap[ce.Scheme]
+		sPort, ok = PortMap[ce.Scheme]
 		if !ok {
 			return fmt.Errorf("ill-formed port specification in Host [%s]", url.Host)
 		}
@@ -106,10 +108,13 @@ func (rt *RoundTripper) stageRequest(logLevel LogLevel, request *http.Request) (
 	return e.LogLevel(), nil
 }
 
-func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response) (LogLevel, error) {
-	e := &ResponseEvent{}
+func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) (LogLevel, error) {
+	e := &ResponseEvent{
+		error: err,
+	}
+	e.SetLogLevel(logLevel)
 	e.SetRequest(request).SetResponse(response)
-	_, err := rt.Dispatch(ctx, e)
+	_, err = rt.Dispatch(ctx, e)
 	if err != nil {
 		return e.LogLevel(), err
 	}
@@ -124,21 +129,49 @@ func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, re
 func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	var logLevel LogLevel
 	var err error
+	var e *ReportEvent
 	ctx := request.Context()
+	t0 := time.Now()
+	defer func() {
+		e.T0 = t0
+		e.T1 = time.Now()
+		_, _ = rt.Dispatch(ctx, e)
+	}()
 
 	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
+		e = &ReportEvent{
+			apiEvent: apiEvent{
+				EventBase: *(&events.EventBase{}).SetRequest(request),
+				logLevel:  logLevel,
+			},
+			Stage: filters.StageConnect,
+			Error: err,
+		}
 		return nil, err
 	}
 
 	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
+		e = &ReportEvent{
+			apiEvent: apiEvent{
+				EventBase: *(&events.EventBase{}).SetRequest(request),
+				logLevel:  logLevel,
+			},
+			Stage: filters.StageRequest,
+			Error: err,
+		}
 		return nil, err
 	}
 
 	response, err := rt.Underlying.RoundTrip(request)
-	if err != nil || ctx.Err() != nil {
-		return response, err
+	_, err = rt.stageResponse(ctx, logLevel, request, response, err)
+	e = &ReportEvent{
+		apiEvent: apiEvent{
+			EventBase: *(&events.EventBase{}).SetRequest(request).SetResponse(response),
+			logLevel:  logLevel,
+		},
+		Stage: filters.StageResponse,
+		Error: err,
 	}
 
-	_, err = rt.stageResponse(ctx, logLevel, request, response)
 	return response, err
 }

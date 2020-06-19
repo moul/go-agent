@@ -13,6 +13,7 @@ import (
 	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/interception"
+	"github.com/bearer/go-agent/proxy"
 )
 
 // ExampleWellFormedInvalidKey is a well-formed key known to be invalid. It may
@@ -33,6 +34,7 @@ type Agent struct {
 	config        *config.Config
 	baseTransport http.RoundTripper
 	transports    transportMap
+	*proxy.Sender
 }
 
 // NewAgent is the Agent constructor.
@@ -57,12 +59,17 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 		return nil, fmt.Errorf("configuring new agent: %w", err)
 	}
 	a.config = c
+	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
+		c.SecretKey(), c.RuntimeEnvironmentType(),
+		a.DefaultTransport(), a.Dispatcher, a.Logger())
+	go a.Sender.Start()
 
 	dcrp := interception.DCRProvider{DCRs: a.config.DataCollectionRules()}
 	a.Dispatcher.AddProviders(interception.TopicConnect, events.ListenerProviderFunc(a.Provider), dcrp)
 	a.Dispatcher.AddProviders(interception.TopicRequest, dcrp)
 	a.Dispatcher.AddProviders(interception.TopicResponse, dcrp)
 	a.Dispatcher.AddProviders(interception.TopicBodies, dcrp)
+	a.Dispatcher.AddProviders(interception.TopicReport, interception.ProxyProvider{Sender: a.Sender})
 	return &a, nil
 }
 

@@ -6,8 +6,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/bearer/go-agent/events"
+	"github.com/bearer/go-agent/filters"
+	"github.com/bearer/go-agent/proxy"
 )
 
 const (
@@ -34,6 +37,11 @@ const (
 	// by the API client. It does NOT mean that these bodies are necessarily
 	// complete, as a client may have closed a request early.
 	TopicBodies events.Topic = "bodies"
+
+	// TopicReport is the event used to request transmission of a ReportLog to
+	// the logs platform. Unlike its four siblings, it can be triggered at any
+	// stage of the API call lifecycle.
+	TopicReport events.Topic = "report_log"
 )
 
 // APIEvent is the type common to all API call lifecycle events.
@@ -107,6 +115,7 @@ func (re RequestEvent) Topic() events.Topic {
 // ResponseEvent is the type of events dispatched at the TopicResponse stage.
 type ResponseEvent struct {
 	apiEvent
+	error
 }
 
 // Topic is part of the Event interface.
@@ -125,6 +134,19 @@ type BodiesEvent struct {
 // Topic is part of the Event interface.
 func (BodiesEvent) Topic() events.Topic {
 	return TopicBodies
+}
+
+// ReportEvent is emitted to publish a call proxy.ReportLog.
+type ReportEvent struct {
+	apiEvent
+	filters.Stage
+	Error  error
+	T0, T1 time.Time
+}
+
+// Topic is part of the Event interface.
+func (ReportEvent) Topic() events.Topic {
+	return TopicReport
 }
 
 // DCRProvider is an events.Listener provider returning listeners based on the
@@ -174,3 +196,26 @@ func (p DCRProvider) Listeners(e events.Event) []events.Listener {
 	}
 }
 
+// ProxyProvider is an events.ListenerProvider returning a proxy listener.
+type ProxyProvider struct {
+	*proxy.Sender
+}
+
+// Listeners implements the events.ListenerProvider interface.
+func (p ProxyProvider) Listeners(e events.Event) []events.Listener {
+	if e.Topic() != TopicReport {
+		return nil
+	}
+	listener := func(ctx context.Context, e events.Event) error {
+		re, ok := e.(*ReportEvent)
+		if !ok {
+			return fmt.Errorf("topic %s used with event type %T", e.Topic(), e)
+		}
+		ll := re.LogLevel()
+		rl := ll.Prepare(re)
+		p.Send(rl)
+		return nil
+	}
+
+	return []events.Listener{listener}
+}

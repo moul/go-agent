@@ -2,7 +2,14 @@ package interception
 
 //go:generate stringer -type=LogLevel -output log_level_names.go
 
-import "strings"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
+	"strings"
+
+	"github.com/bearer/go-agent/proxy"
+)
 
 // LogLevelKey is the key in contexts where the current LogLevel may be found.
 const LogLevelKey = `BearerLogLevel`
@@ -45,3 +52,69 @@ func LogLevelFromString(s string) LogLevel {
 	}
 }
 
+// Prepare extract the ReportLog information from the API call, depending on the LogLevel.
+func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
+	request := re.Request()
+	response := re.Response()
+	err := re.Error
+
+	if re.Request() == nil {
+		request, _ = http.NewRequest(``, ``, nil)
+	}
+	u := request.URL
+	// Cf. Go runtime: src/net/http/transport.go
+	PortMap := map[string]uint16{
+		"http":   80,
+		"https":  443,
+		"socks5": 1080,
+	}
+	port := PortMap[u.Scheme] // Having 0 in case of errors is expected.
+
+	var errorCode, errorMessage string
+	if err != nil {
+		errorCode = err.Error()
+		errorMessage = errorCode
+	}
+
+	rl := proxy.ReportLog{
+		LogLevel: strings.ToUpper(ll.String()),
+		Port:     port,
+		Protocol: u.Scheme,
+		Hostname: u.Hostname(),
+	}
+
+	if *ll >= Restricted {
+		rl.StartedAt = int(re.T0.UnixNano() / 1E6)
+		rl.EndedAt = int(re.T1.UnixNano() / 1E6)
+		rl.Stage = re.Stage
+		rl.ActiveDataCollectionRules = []string{}
+		rl.Path = u.Path
+		rl.Method = request.Method
+		rl.URL = u.String()
+		if response != nil {
+			rl.StatusCode = response.StatusCode
+		}
+		rl.ErrorCode = errorCode
+		rl.ErrorFullMessage = errorMessage
+
+		if err != nil {
+			rl.Type = proxy.Error
+		} else {
+			rl.Type = proxy.End
+		}
+
+	}
+	if *ll >= All {
+		rl.RequestHeaders = request.Header
+		rl.ResponseHeaders = response.Header
+		rl.RequestBody = ``
+		rl.ResponseBody = ``
+
+		reqSha := sha256.Sum256([]byte(rl.RequestBody))
+		rl.RequestBodyPayloadSHA = hex.EncodeToString(reqSha[:])
+
+		resSha := sha256.Sum256([]byte(rl.ResponseBody))
+		rl.ResponseBodyPayloadSHA = hex.EncodeToString(resSha[:])
+	}
+	return rl
+}

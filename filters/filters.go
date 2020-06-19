@@ -27,17 +27,17 @@ func (s Stage) Next() Stage {
 const (
 	// StageUndefined represents a lack of requirement for any specific stage.
 	// It is not used as one of the actual API stage.
-	StageUndefined = "UNDEFINED"
+	StageUndefined = "UndefinedStage"
 	// StageConnect is the initial API call stage.
-	StageConnect Stage = "CONNECT"
+	StageConnect Stage = "ConnectStage"
 	// StageRequest is the stage at which the request is being built.
-	StageRequest Stage = "REQUEST"
+	StageRequest Stage = "RequestStage"
 	// StageResponse is the stage at which the response has started to return.
-	StageResponse Stage = "RESPONSE"
+	StageResponse Stage = "ResponseStage"
 	// StageBodies is the stage at which request and response bodies are available.
-	StageBodies Stage = "BODIES"
+	StageBodies Stage = "BodiesStage"
 	// StageInvalid is an invalid stage a request should never reach.
-	StageInvalid Stage = "INVALID"
+	StageInvalid Stage = "InvalidStage"
 )
 
 // FilterMap binds Filter hashes in a config.Description to the actual Filter instances.
