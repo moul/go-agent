@@ -5,8 +5,6 @@ import (
 	"os"
 
 	"github.com/rs/zerolog"
-
-	"github.com/bearer/go-agent/config"
 )
 
 // Logger returns a valid zerolog.Logger instance for the agent.
@@ -29,9 +27,9 @@ func (a *Agent) SetLogger(w io.Writer) *Agent {
 		zl = &l
 	}
 	if a.config == nil {
-		a.config = &config.Config{}
+		a.config = &Config{}
 	}
-	_ = config.WithLogger(zl)(a.config)
+	_ = WithLogger(zl)(a.config)
 	return a
 }
 

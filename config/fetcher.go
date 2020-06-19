@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"github.com/bearer/go-agent/filters"
 	"github.com/bearer/go-agent/interception"
 	"github.com/bearer/go-agent/proxy"
@@ -42,8 +44,8 @@ func (d Description) String() string {
 	return b.String()
 }
 
-// filterHashes walks the Description.Filters to collate the filter descriptions.
-func (d Description) filterDescriptions() (map[string]*filters.FilterDescription, error) {
+// FilterDescriptions walks the Description.Filters to collate the filter descriptions.
+func (d Description) FilterDescriptions() (map[string]*filters.FilterDescription, error) {
 	// All referenced hashes are supposed to have a matching filter description.
 	//   - nil: not found
 	//   - not nil: the description. Actual type depends on Filter type.
@@ -90,13 +92,13 @@ func (d Description) filterDescriptions() (map[string]*filters.FilterDescription
 	return hashes, nil
 }
 
-// resolveHashes builds a filters.FilterMap from the filter descriptions it
+// ResolveHashes builds a filters.FilterMap from the filter descriptions it
 // receives, resolving dependencies to allow instantiation.
 // The function detects cyclic dependencies, and returns errors accordingly.
 //
 // Algorithm inspired by https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html
 // Published under a permissive license
-func (d Description) resolveHashes(descriptions map[string]*filters.FilterDescription) (filters.FilterMap, error) {
+func (d Description) ResolveHashes(descriptions map[string]*filters.FilterDescription) (filters.FilterMap, error) {
 	// TODO simplify type: filter is always nil.
 	type filterSlice []struct {
 		hash string
@@ -162,8 +164,8 @@ func (d Description) resolveHashes(descriptions map[string]*filters.FilterDescri
 	return res, nil
 }
 
-// resolveDCRs creates a slice of DataCollectionRule values from a resolved filters.FilterMap.
-func (d *Description) resolveDCRs(filterMap filters.FilterMap) ([]*interception.DataCollectionRule, error) {
+// ResolveDCRs creates a slice of DataCollectionRule values from a resolved filters.FilterMap.
+func (d *Description) ResolveDCRs(filterMap filters.FilterMap) ([]*interception.DataCollectionRule, error) {
 	dcrs := make([]*interception.DataCollectionRule, 0, len(d.DataCollectionRules))
 	for _, desc := range d.DataCollectionRules {
 		dcr := interception.NewDCRFromDescription(filterMap, desc)
@@ -177,42 +179,48 @@ func (d *Description) resolveDCRs(filterMap filters.FilterMap) ([]*interception.
 
 // Fetcher describes the data used to perform the background configuration refresh.
 type Fetcher struct {
-	config    *Config
-	done      chan bool
-	ticker    *time.Ticker
-	transport http.RoundTripper
-	version   string
+	done            chan bool
+	endpoint        string
+	environmentType string
+	logger          *zerolog.Logger
+	secretKey       string
+	ticker          *time.Ticker
+	transport       http.RoundTripper
+	version         string
 }
 
 // NewFetcher builds an un-started Fetcher.
-func NewFetcher(transport http.RoundTripper, version string, config *Config) *Fetcher {
+func NewFetcher(transport http.RoundTripper, logger *zerolog.Logger, version string, fetchEndpoint string, fetchInterval time.Duration, environmentType string, secretKey string) *Fetcher {
 	return &Fetcher{
-		config:    config,
-		done:      make(chan bool),
-		ticker:    time.NewTicker(config.fetchInterval),
-		transport: transport,
-		version:   version,
+		done:            make(chan bool),
+		endpoint:        fetchEndpoint,
+		environmentType: environmentType,
+		logger:          logger,
+		secretKey:       secretKey,
+		ticker:          time.NewTicker(fetchInterval),
+		transport:       transport,
+		version:         version,
 	}
 }
 
 // Fetch fetches a fresh configuration from the Bearer platform and assigns it
 // to the current config. As per Agent spec, all config fetch errors are logged
 // and ignored.
-func (f *Fetcher) Fetch() error {
+func (f *Fetcher) Fetch() (*Description, error) {
 	report := &bytes.Buffer{}
-	err := json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.config.runtimeEnvironmentType, f.config.secretKey))
+	err := json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.environmentType, f.secretKey))
 	if err != nil {
-		f.config.Warn().Msgf("building Bearer config report: %v", err)
-		return err
+		f.logger.Warn().Msgf("building Bearer config report: %v", err)
+		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, f.config.configEndpoint, report)
+	req, err := http.NewRequest(http.MethodPost, f.endpoint, report)
 	if err != nil {
-		f.config.Warn().Msgf("building Bearer remote config request: %v", err)
-		return err
+		f.logger.Warn().Msgf("building Bearer remote config request: %v", err)
+		return nil, err
 	}
 	req.Header.Add(proxy.AcceptHeader, "application/json")
-	req.Header.Add("Authorization", f.config.secretKey)
+	req.Header.Add("Authorization", f.secretKey)
 	req.Header.Set(proxy.ContentTypeHeader, proxy.FullContentTypeJSON)
 
 	client := http.Client{Transport: f.transport}
@@ -221,36 +229,35 @@ func (f *Fetcher) Fetch() error {
 		if err == nil {
 			err = errors.New("the Bearer platform rejected the config fetch")
 		}
-		f.config.Warn().Msgf("failed remote config from Bearer: %v", err)
-		return err
+		f.logger.Warn().Msgf("failed remote config from Bearer: %v", err)
+		return nil, err
 	}
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		f.config.Warn().Msgf("reading remote config received from Bearer: %v", err)
-		return err
+		f.logger.Warn().Msgf("reading remote config received from Bearer: %v", err)
+		return nil, err
 	}
 	remoteConf := Description{}
 	if err := json.Unmarshal(body, &remoteConf); err != nil {
-		f.config.Warn().Msgf("decoding remote config received from Bearer: %v", err)
-		return err
+		f.logger.Warn().Msgf("decoding remote config received from Bearer: %v", err)
+		return nil, err
 	}
 	if len(remoteConf.Error) > 0 {
 		message := "the Bearer platform rejected the config request"
 		errMessage, ok := remoteConf.Error[`message`]
 		if ok {
-			f.config.Warn().Str(`config error message`, errMessage).Msg(message)
+			f.logger.Warn().Str(`config error message`, errMessage).Msg(message)
 		} else {
 			j, err := json.Marshal(remoteConf.Error)
 			if err != nil {
-				f.config.Warn().RawJSON(`config response`, body).Msg(message)
+				f.logger.Warn().RawJSON(`config response`, body).Msg(message)
 			}
-			f.config.Warn().RawJSON(`config error`, j).Msg(message)
+			f.logger.Warn().RawJSON(`config error`, j).Msg(message)
 		}
-		return errors.New(message)
+		return nil, errors.New(message)
 	}
-	f.config.UpdateFromDescription(remoteConf)
-	return nil
+	return &remoteConf, nil
 }
 
 // Stop deactivates the fetcher background operation.
@@ -260,12 +267,12 @@ func (f *Fetcher) Stop() {
 }
 
 // Start activates the fetcher background operation.
-func (f *Fetcher) Start() {
+func (f *Fetcher) Start(configSetter func(*Description)) {
 	if f.done == nil {
 		f.done = make(chan bool)
 	}
 	if f.ticker == nil {
-		f.ticker = time.NewTicker(f.config.fetchInterval)
+		f.ticker = time.NewTicker(DefaultFetchInterval)
 	}
 	go func() {
 		defer f.ticker.Stop()
@@ -274,8 +281,11 @@ func (f *Fetcher) Start() {
 			case <-f.done:
 				return
 			case <-f.ticker.C:
-				f.config.Trace().Msgf(`Background config fetch`)
-				_ = f.Fetch()
+				f.logger.Trace().Msgf(`Background config fetch`)
+				d, err := f.Fetch()
+				if err != nil {
+					configSetter(d)
+				}
 			}
 		}
 	}()

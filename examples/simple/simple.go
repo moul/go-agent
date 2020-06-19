@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bearer/go-agent"
-	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/examples"
 )
 
@@ -25,9 +24,9 @@ func main() {
 	//
 	// Note that, since the Go runtime httptest uses manually defined clients,
 	// your running HTTP tests will not trigger extra monitoring calls to Bearer.
-	secretKey := os.Getenv(config.SecretKeyName)
-	if !config.SecretKeyRegex.MatchString(secretKey) {
-		secretKey = agent.ExampleWellFormedInvalidKey
+	secretKey := os.Getenv(agent.SecretKeyName)
+	if len(secretKey) == 0 {
+		log.Fatalf(`Bearer needs a %s environment variable`, agent.SecretKeyName)
 	}
 	defer agent.Init(secretKey)()
 
@@ -35,6 +34,7 @@ func main() {
 	//
 	// The client will trigger monitoring for the request parameters, and the
 	// request and response headers.
+	examples.APIURL = `https://code.osinet.fr/api/v1/orgs/OSInet?a=a11&a=a12&b=2&password=secret&foo=her+email+is+jane.doe@example.com&card=4539530418912307`
 	for i := 0; i < 10; i++ {
 		res, err := http.Get(examples.APIURL)
 		if err != nil {
@@ -53,7 +53,7 @@ func main() {
 			log.Fatalf("reading API response: %v", err)
 		}
 
-		examples.ShowGithubOrg(body)
+		examples.ShowGogsOrg(body)
 		time.Sleep(700 * time.Millisecond)
 	}
 }

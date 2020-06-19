@@ -3,6 +3,9 @@
     <module name="bearer-go-agent" />
     <working_directory value="$PROJECT_DIR$/" />
     <go_parameters value="-i" />
+    <envs>
+      <env name="BEARER_TRACE" value="y" />
+    </envs>
     <EXTENSION ID="net.ashald.envfile">
       <option name="IS_ENABLED" value="false" />
       <option name="IS_SUBST" value="false" />
