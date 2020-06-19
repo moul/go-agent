@@ -21,8 +21,9 @@ type Event interface {
 	// and use the typed getters accordingly.
 	Data() interface{}
 
-	Request()  *http.Request
+	Request() *http.Request
 	Response() *http.Response
+	Err() error
 
 	// SetData is a setter for the data returned by Data.
 	SetData(interface{}) Event
@@ -30,15 +31,18 @@ type Event interface {
 	SetRequest(r *http.Request) Event
 	// SetResponse is a setter for the event response, returning the event.
 	SetResponse(r *http.Response) Event
+	// SetError is a setter for the error, returning the event.
+	SetError(err error) Event
 }
 
 // EventBase is a basic event implementation, meant to be composed into actual
 // event types to provide default storage and code for the Event methods.
 type EventBase struct {
-	data  interface{}
-	topic Topic
-	request *http.Request
+	data     interface{}
+	topic    Topic
+	request  *http.Request
 	response *http.Response
+	Error    error
 }
 
 // Data is part of the Event interface.
@@ -51,7 +55,7 @@ func (eb *EventBase) Request() *http.Request {
 	return eb.request
 }
 
-// SetRequest set the http.Request in the event, which may be nil.
+// SetRequest sets the http.Request in the event, which may be nil.
 func (eb *EventBase) SetRequest(r *http.Request) Event {
 	eb.request = r
 	return eb
@@ -62,9 +66,20 @@ func (eb *EventBase) Response() *http.Response {
 	return eb.response
 }
 
-// SetResponse set the http.Response in the event, which may be nil.
+// SetResponse sets the http.Response in the event, which may be nil.
 func (eb *EventBase) SetResponse(r *http.Response) Event {
 	eb.response = r
+	return eb
+}
+
+// Err returns the error present on the event.
+func (eb *EventBase) Err() error {
+	return eb.Error
+}
+
+// SetError sets the error in the event, which may be nil.
+func (eb *EventBase) SetError(err error) Event {
+	eb.Error = err
 	return eb
 }
 

@@ -4,8 +4,9 @@ package filters
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // FilterSetOperator represents the operators available in Filter sets.
@@ -44,40 +45,40 @@ func (f *filterSet) Type() FilterType {
 	return FilterSetFilterType
 }
 
-func (f *filterSet) MatchesCall(request *http.Request, response *http.Response) bool {
+func (f *filterSet) MatchesCall(e events.Event) bool {
 	switch op := f.operator; op {
 	case Any:
-		return f.matchAny(request, response)
+		return f.matchAny(e)
 
 	case All:
-		return f.matchAll(request, response)
+		return f.matchAll(e)
 
 	case NotFirst:
-		return f.matchNotFirst(request, response)
+		return f.matchNotFirst(e)
 	}
 
 	return false
 }
 
-func (f *filterSet) matchNotFirst(request *http.Request, response *http.Response) bool {
+func (f *filterSet) matchNotFirst(e events.Event) bool {
 	if len(f.children) == 0 {
 		return false
 	}
-	return !f.children[0].MatchesCall(request, response)
+	return !f.children[0].MatchesCall(e)
 }
 
-func (f *filterSet) matchAny(request *http.Request, response *http.Response) bool {
+func (f *filterSet) matchAny(e events.Event) bool {
 	for _, f := range f.children {
-		if f.MatchesCall(request, response) {
+		if f.MatchesCall(e) {
 			return true
 		}
 	}
 	return false
 }
 
-func (f *filterSet) matchAll(request *http.Request, response *http.Response) bool {
+func (f *filterSet) matchAll(e events.Event) bool {
 	for _, f := range f.children {
-		if !f.MatchesCall(request, response) {
+		if !f.MatchesCall(e) {
 			return false
 		}
 	}

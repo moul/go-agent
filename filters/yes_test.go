@@ -3,6 +3,8 @@ package filters
 import (
 	"net/http"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 func TestYesFilter_MatchesCall(t *testing.T) {
@@ -21,7 +23,8 @@ func TestYesFilter_MatchesCall(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			nf := &YesFilter{}
-			if gotTrue := nf.MatchesCall(tt.args.in0, tt.args.in1); !gotTrue {
+			e := (&events.EventBase{}).SetRequest(tt.args.in0).SetResponse(tt.args.in1)
+			if gotTrue := nf.MatchesCall(e); !gotTrue {
 				t.Errorf("MatchesCall() = %v, want true", gotTrue)
 			}
 		})

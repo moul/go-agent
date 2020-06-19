@@ -3,7 +3,8 @@ package filters
 import (
 	"errors"
 	"fmt"
-	"net/http"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // RequestHeadersFilter provides a filter for API Request headers.
@@ -24,9 +25,9 @@ func (f *RequestHeadersFilter) ensureMatcher() {
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *RequestHeadersFilter) MatchesCall(request *http.Request, _ *http.Response) bool {
+func (f *RequestHeadersFilter) MatchesCall(e events.Event) bool {
 	f.ensureMatcher()
-	return f.KeyValueMatcher.Matches(request.Header)
+	return f.KeyValueMatcher.Matches(e.Request().Header)
 }
 
 // SetMatcher sets the filter KeyValueMatcher.

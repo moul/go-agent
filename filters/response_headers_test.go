@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"regexp"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 func TestResponseHeadersFilter_MatchesCall(t *testing.T) {
@@ -32,8 +34,8 @@ func TestResponseHeadersFilter_MatchesCall(t *testing.T) {
 				_ = f.SetMatcher(NewKeyValueMatcher(tt.key, tt.value))
 
 			}
-			response := &http.Response{Header: tt.header}
-			if got := f.MatchesCall(nil, response); got != tt.want {
+			e := (&events.EventBase{}).SetResponse(&http.Response{Header: tt.header})
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})

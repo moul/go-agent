@@ -3,6 +3,8 @@ package filters
 import (
 	"net/http"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // Beware: this test can only run when the set_names.go file has been
@@ -56,7 +58,8 @@ func Test_filterSet_MatchesCall(t *testing.T) {
 				operator: tt.fields.operator,
 				children: tt.fields.children,
 			}
-			if got := f.MatchesCall(tt.args.request, tt.args.response); got != tt.want {
+			e := (&events.EventBase{}).SetRequest(tt.args.request).SetResponse(tt.args.response)
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})

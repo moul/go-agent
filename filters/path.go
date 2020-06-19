@@ -2,7 +2,8 @@ package filters
 
 import (
 	"fmt"
-	"net/http"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // PathFilter provides a filter for the path in API requests.
@@ -23,9 +24,9 @@ func (f *PathFilter) ensureMatcher() {
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *PathFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
+func (f *PathFilter) MatchesCall(e events.Event) bool {
 	f.ensureMatcher()
-	criterium := r.URL.Path
+	criterium := e.Request().URL.Path
 	return f.RegexpMatcher.Matches(criterium)
 }
 

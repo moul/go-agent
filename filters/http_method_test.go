@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 func TestHTTPMethodFilter_MatchesCall(t *testing.T) {
@@ -22,7 +24,8 @@ func TestHTTPMethodFilter_MatchesCall(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &HTTPMethodFilter{NewStringMatcher(tt.method, tt.ignoreCase)}
-			if got := f.MatchesCall(tt.req, nil); got != tt.want {
+			e := (&events.EventBase{}).SetRequest(tt.req)
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})

@@ -3,6 +3,8 @@ package filters
 import (
 	"net/http"
 	"testing"
+
+	"github.com/bearer/go-agent/events"
 )
 
 func TestNotFilter_MatchesCall(t *testing.T) {
@@ -27,8 +29,8 @@ func TestNotFilter_MatchesCall(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &NotFilter{}
 			f.AddChildren(tt.filter)
-
-			if got := f.MatchesCall(tt.args.r, tt.args.s); got != tt.want {
+			e := (&events.EventBase{}).SetRequest(tt.args.r).SetResponse(tt.args.s)
+			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}
 		})

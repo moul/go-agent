@@ -2,7 +2,8 @@ package filters
 
 import (
 	"fmt"
-	"net/http"
+
+	"github.com/bearer/go-agent/events"
 )
 
 // DomainFilter provides a filter for the host name in API requests.
@@ -23,9 +24,9 @@ func (f *DomainFilter) ensureMatcher() {
 }
 
 // MatchesCall is part of the Filter interface.
-func (f *DomainFilter) MatchesCall(r *http.Request, _ *http.Response) bool {
+func (f *DomainFilter) MatchesCall(e events.Event) bool {
 	f.ensureMatcher()
-	criterium := r.URL.Hostname()
+	criterium := e.Request().URL.Hostname()
 	return f.RegexpMatcher.Matches(criterium)
 }
 
