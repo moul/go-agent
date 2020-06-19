@@ -80,9 +80,9 @@ func TestPathFilter_ensureMatcher(t *testing.T) {
 }
 
 func TestPathFilter_Type(t *testing.T) {
-	expected := pathFilter
+	expected := PathFilterType.String()
 	var f PathFilter
-	actual := f.Type()
+	actual := f.Type().String()
 	if actual != expected {
 		t.Errorf("Type() = %v, want %v", actual, expected)
 	}

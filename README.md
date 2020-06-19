@@ -110,11 +110,33 @@ see the [tags on this repository](https://code.osinet.fr/OSInet/bearer-go-agent/
 
 ## @TODO : License
 
-This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details
-
+- This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details
+    
+[article by Ferry Boender]: https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html
 
 ## @TODO : Acknowledgments
 
 * Hat tip to anyone whose code was used
 * Inspiration
 * etc
+
+- The dependency resolution algorithm in `Description.resolveHashes` is adapted
+  from an [article by Ferry Boender], published under a permissive license:
+  
+        This document may be freely distributed, in part or as a whole, on any
+        medium, without the prior authorization of the author, provided that this
+        Copyright notice remains intact, and there will be no obstruction as to
+        the further distribution of this document. You may not ask a fee for the
+        contents of this document, though a fee to compensate for the distribution
+        of this document is permitted.
+    
+        Modifications to this document are permitted, provided that the modified
+        document is distributed under the same license as the original document
+        and no copyright notices are removed from this document. All contents
+        written by an author stays copyrighted by that author.
+    
+        Failure to comply to one or all of the terms of this license automatically
+        revokes your rights granted by this license
+    
+        All brand and product names mentioned in this document are trademarks or
+        registered trademarks of their respective holders.

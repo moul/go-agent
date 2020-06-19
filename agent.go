@@ -2,10 +2,10 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"sync"
 
 	"github.com/rs/zerolog"
@@ -15,18 +15,12 @@ import (
 	"github.com/bearer/go-agent/interception"
 )
 
-// SecretKeyName is the environment variable used to hold the Bearer secret key,
-// specific to each client. Fetching the secret key from the environment is a
-// best practice in 12-factor application development.
-const SecretKeyName = `BEARER_SECRETKEY`
-
-// SecretKeyPattern is the text for the regular expression validating the shape
-// of submitted secret keys, before they are sent over to Bearer for value validation.
-const SecretKeyPattern = `app_[0-9]{50}`
-
 // ExampleWellFormedInvalidKey is a well-formed key known to be invalid. It may
 // be used for integration test scenarios.
 const ExampleWellFormedInvalidKey = `app_12345678901234567890123456789012345678901234567890`
+
+// Version is the semantic agent version.
+const Version = `0.0.1`
 
 type transportMap map[http.RoundTripper]http.RoundTripper
 
@@ -43,17 +37,26 @@ type Agent struct {
 
 // NewAgent is the Agent constructor.
 //
-// In most usage scenarios, you will only use a single Agent in a given application.
-func NewAgent(secretKey string, opts ...config.Option) (*Agent, error) {
-	c, err := config.NewConfig(append(opts, config.WithSecretKey(secretKey))...)
+// In most usage scenarios, you will only use a single Agent in a given application,
+// and pass a zerolog.Logger instance for the logger.
+func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent, error) {
+	a := Agent{
+		baseTransport: unwrapTransport(http.DefaultClient.Transport),
+		Dispatcher:    events.NewDispatcher(),
+		SecretKey:     secretKey,
+		transports:    make(transportMap),
+	}
+	a.SetLogger(logger)
+
+	c, err := config.NewConfig(
+		unwrapTransport(http.DefaultClient.Transport),
+		a.logger,
+		Version,
+		append(opts, config.WithSecretKey(secretKey))...)
 	if err != nil {
 		return nil, fmt.Errorf("configuring new agent: %w", err)
 	}
-	a := Agent{
-		Dispatcher: events.NewDispatcher(),
-		SecretKey:  secretKey,
-		config:     c,
-	}
+	a.config = c
 
 	a.Dispatcher.AddProviders(interception.Connect,
 		events.ListenerProviderFunc(a.Provider),
@@ -79,10 +82,10 @@ func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
 	}
 }
 
-// DecorateClientTransports wraps the http.RoundTripper transports in all passed clients, as
-// well as the runtime library DefaultClient, with Bearer instrumentation.
+// DecorateClientTransports wraps the http.RoundTripper transports in all passed
+// clients, as well as the runtime library DefaultClient, with Bearer
+// instrumentation.
 func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
-	a.baseTransport = http.DefaultClient.Transport
 	if a.transports == nil {
 		a.transports = make(transportMap)
 	}
@@ -112,37 +115,16 @@ func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
 	}
 }
 
-// Init initializes the agent with a Bearer secret key, and specifies which HTTP
-// clients it needs to decorate in addition to the http.DefaultClient.
-func (a *Agent) Init(secretKey string, clients ...*http.Client) *Agent {
-	reKey := regexp.MustCompile(SecretKeyPattern)
-	if !reKey.MatchString(secretKey) {
-		a.logger.Error().Msgf("attempting Init with ill-formed secret key: [%s]", secretKey)
-		return nil
-	}
-	a.DecorateClientTransports(clients...)
-	return a
-}
-
 // DefaultAgent is a preconfigured agent logging to os.Stderr.
 //
 // To ensure complete compatibility with the runtime "log" package, be sure to
 // log.SetOutput(DefaultAgent.Logger()).
-var DefaultAgent = (&Agent{
-	Dispatcher: events.NewDispatcher(),
-	transports: make(transportMap),
-}).SetLogger(os.Stderr)
+var DefaultAgent *Agent
 
 // TODO This is just a placeholder for future logic.
 func close() error {
 	log.Fatal(`End of Bearer agent operation`)
 	return nil
-}
-
-// Decorate wraps any HTTP transport in Bearer instrumentation, returning an
-// equivalent instrumented transport.
-func Decorate(rt http.RoundTripper) http.RoundTripper {
-	return DefaultAgent.Decorate(rt)
 }
 
 // Init initializes the Bearer agent:
@@ -151,7 +133,12 @@ func Decorate(rt http.RoundTripper) http.RoundTripper {
 //   - it returns a closing function which will ensure orderly termination of the
 //     app, including flushing the list of records not yet transmitted to Bearer.
 func Init(secretKey string, clients ...*http.Client) func() error {
-	DefaultAgent.Init(secretKey, clients...)
+	var err error
+	DefaultAgent, err = NewAgent(secretKey, os.Stderr)
+	if err != nil {
+		return close
+	}
+	DefaultAgent.DecorateClientTransports(clients...)
 	return close
 }
 
@@ -168,4 +155,15 @@ func (a *Agent) Provider(e events.Event) []events.Listener {
 	}
 
 	return l
+}
+
+func unwrapTransport(rt http.RoundTripper) http.RoundTripper {
+	for {
+		if base, ok := rt.(*interception.RoundTripper); ok {
+			rt = base.Underlying
+			continue
+		}
+		break
+	}
+	return rt
 }

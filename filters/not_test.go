@@ -118,9 +118,9 @@ func TestNotFilter_ensureFilter(t *testing.T) {
 }
 
 func TestNotFilter_Type(t *testing.T) {
-	expected := notFilter
+	expected := NotFilterType.String()
 	var f NotFilter
-	actual := f.Type()
+	actual := f.Type().String()
 	if actual != expected {
 		t.Errorf("Type() = %v, want %v", actual, expected)
 	}

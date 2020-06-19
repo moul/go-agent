@@ -1,7 +1,10 @@
 package filters
 
 import (
+	"fmt"
 	"net/http"
+	"reflect"
+	"strings"
 )
 
 // Stage represents the stage an API call is in.
@@ -37,20 +40,32 @@ const (
 	StageInvalid Stage = "INVALID"
 )
 
+// FilterMap binds Filter hashes in a config.Description to the actual Filter instances.
+type FilterMap map[string]Filter
+
 // FilterType allows Filter types to have "static" properties.
 type FilterType interface {
+	// Create creates an instance of the described type. The actual type of the
+	// description depends on the FilterType and will be asserted.
+	Create(fm FilterMap, description interface{}) Filter
 	Name() string
 	WantsRequest() bool
 	WantsResponse() bool
+	fmt.Stringer
 }
 
 type filterType struct {
 	name                        string
+	creator                     func(FilterMap, interface{}) Filter
 	wantsRequest, wantsResponse bool
 }
 
 func (ft filterType) Name() string {
 	return ft.name
+}
+
+func (ft filterType) Create(fm FilterMap, description interface{}) Filter {
+	return ft.creator(fm, description)
 }
 
 func (ft filterType) WantsRequest() bool {
@@ -59,6 +74,16 @@ func (ft filterType) WantsRequest() bool {
 
 func (ft filterType) WantsResponse() bool {
 	return ft.wantsResponse
+}
+
+// String implements fmt.Stringer.
+func (ft filterType) String() string {
+	b := strings.Builder{}
+	b.WriteString(ft.name + `:`)
+	b.WriteString(fmt.Sprintf("%016x:", reflect.ValueOf(ft.creator).Pointer()))
+	b.WriteString(fmt.Sprintf(`%t:`, ft.wantsRequest))
+	b.WriteString(fmt.Sprintf(`%t`, ft.wantsResponse))
+	return b.String()
 }
 
 // Filter defines the behaviour common to all filters
@@ -71,25 +96,86 @@ type Filter interface {
 	// SetMatcher assigns a specific Matcher instance to the filter.
 	// Passing a nil matcher will assign a filter-specific default Matcher.
 	SetMatcher(Matcher) error
+
 }
 
 var (
-	notFilter       FilterType = filterType{"NotFilter", true, true}
-	filterSetFilter FilterType = filterType{"FilterSet", true, true}
+	// NotFilterType describes NotFilter.
+	NotFilterType       FilterType = filterType{"NotFilter", notFilterFromDescription, true, true}
+	// FilterSetFilterType describes the FilterSet.
+	FilterSetFilterType FilterType = filterType{"FilterSet", setFilterFromDescription, true, true}
 
-	domainFilter FilterType = filterType{"DomainFilter", true, false}
+	// DomainFilterType describes DomainFilter.
+	DomainFilterType FilterType = filterType{"DomainFilter", domainFilterFromDescription, true, false}
 
-	httpMethodFilter     FilterType = filterType{"HttpMethodFilter", true, false}
-	paramFilter          FilterType = filterType{"ParamFilter", true, false}
-	pathFilter           FilterType = filterType{"PathFilter", true, false}
-	requestHeadersFilter FilterType = filterType{"RequestHeadersFilter", true, false}
+	// HTTPMethodFilterType describes HTTPMethodFilter.
+	HTTPMethodFilterType     FilterType = filterType{"HttpMethodFilter", methodFilterFromDescription, true, false}
+	// ParamFilterType describes ParamFilter.
+	ParamFilterType          FilterType = filterType{"ParamFilter", paramFilterFromDescription, true, false}
+	// PathFilterType describes PathFilter.
+	PathFilterType           FilterType = filterType{"PathFilter", pathFilterFromDescription, true, false}
+	// RequestHeadersFilterType describes RequestHeadersFilter.
+	RequestHeadersFilterType FilterType = filterType{"RequestHeadersFilter", requestFilterHeadersFromDescription, true, false}
+	// ResponseHeadersFilterType describes ResponseHeadersFilter.
+	ResponseHeadersFilterType FilterType = filterType{"ResponseHeadersFilter", responseHeadersFilterFromDescription, false, true}
+	// StatusCodeFilterType describes StatusCodeFilter.
+	StatusCodeFilterType      FilterType = filterType{"StatusCodeFilter", statusCodeFilterFromDescription, false, true}
 
-	responseHeadersFilter FilterType = filterType{"ResponseHeadersFilter", false, true}
-	statusCodeFilter      FilterType = filterType{"StatusCodeFilter", false, true}
+	//RequestBodiesFilterType  FilterType = filterType{"RequestBodiesFilter", requestBodiesFilterFromDescription, true, false}
+	//ResponseBodiesFilterType FilterType = filterType{"ResponseBodiesFilter", responseBodiesFilterFromDescription, false, true}
 
-	//requestBodiesFilter  FilterType = filterType{"RequestBodiesFilter", true, false}
-	//responseBodiesFilter FilterType = filterType{"ResponseBodiesFilter", false, true}
-
-	//connectionErrorFilter FilterType = filterType{"ConnectionErrorFilter", false, false}
-	yesInternalFilter     FilterType = filterType{"YesFilter", false, false}
+	//ConnectionErrorFilterType FilterType = filterType{"ConnectionErrorFilter", connectionErrorFilterFromDescription, false, false}
+	yesInternalFilter FilterType = filterType{"YesFilter", nil, false, false}
 )
+
+// FilterDescription is a kind of "union type" describing all possible
+// fields returned by the config server, with TypeName acting as the discriminator.
+type FilterDescription struct {
+	// ChildHash is set on filters.NotFilter
+	ChildHash string
+
+	// Value is set on filters using filters.StringMatcher, like filters.HTTPMethodFilter.
+	Value string
+
+	// Pattern is set on filters using filters.RegexpMatcher, like filters.DomainFilter.
+	// XXX Its fields are not portable across regexp implementations.
+	Pattern RegexpMatcherDescription
+
+	// FilterSetDescription carries the fields set on filters.FilterSet filters.
+	FilterSetDescription
+
+	// KeyValueDescription carries the fields set on filters using filters.KeyValueMatcher.
+	// XXX Its fields are not portable across regexp implementations.
+	KeyValueDescription
+
+	// Range is set on filters using filters.RangeMatcher like filters.StatusCodeFilter.
+	Range RangeMatcherDescription
+
+	// StageType is one of the 4 API call stages.
+	StageType string
+
+	// TypeName is the name of the filter type, used to select which fields
+	// from the config to parse.
+	TypeName string
+}
+
+func (d FilterDescription) String() string {
+	b := strings.Builder{}
+	b.WriteString(fmt.Sprintf("%-22s - %-20s - ", d.TypeName, d.StageType))
+	l1 := len(b.String())
+	if d.ChildHash != `` {
+		b.WriteString(`H: ` + d.ChildHash + "\n")
+	}
+	if d.Value != `` {
+		b.WriteString(`Value: ` + d.Value + "\n")
+	}
+	b.WriteString(d.Pattern.String())
+	b.WriteString(d.FilterSetDescription.String())
+	b.WriteString(d.KeyValueDescription.String())
+	b.WriteString(d.Range.String())
+	s := b.String()
+	if len(s) == l1 {
+		s += "\n"
+	}
+	return s
+}

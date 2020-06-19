@@ -12,7 +12,7 @@ type DomainFilter struct {
 
 // Type is part of the Filter interface.
 func (*DomainFilter) Type() FilterType {
-	return domainFilter
+	return DomainFilterType
 }
 
 func (f *DomainFilter) ensureMatcher() {
@@ -48,4 +48,17 @@ func (f *DomainFilter) SetMatcher(matcher Matcher) error {
 	}
 	f.RegexpMatcher = rm
 	return nil
+}
+
+func domainFilterFromDescription(filterMap FilterMap, d interface{}) Filter {
+	rd, ok := d.(RegexpMatcherDescription)
+	if !ok {
+		return nil
+	}
+	f := &DomainFilter{}
+	err := f.SetMatcher(NewRegexpMatcher(rd.Value))
+	if err != nil {
+		return nil
+	}
+	return f
 }

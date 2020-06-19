@@ -31,7 +31,7 @@ func Test_filterType_Values(t *testing.T) {
 		wantName                    string
 		wantsRequest, wantsResponse bool
 	}{
-		{"not", notFilter, "NotFilter", true, true},
+		{"not", NotFilterType, "NotFilter", true, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

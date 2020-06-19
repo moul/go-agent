@@ -15,7 +15,7 @@ func (a *Agent) Logger() *zerolog.Logger {
 	return a.logger
 }
 
-// SetLogger initializes the writer with a specific writer.
+// SetLogger changes the logger with a specific zerolog.Logger.
 //
 // If the writer is a zerolog.Writer, it is used as such, otherwise a new
 // zerolog.Logger is used to wrap it.

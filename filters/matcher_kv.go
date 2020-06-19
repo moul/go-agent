@@ -245,3 +245,18 @@ func NewKeyValueMatcher(key, value string) KeyValueMatcher {
 		valueRegexp: valueRegexp,
 	}
 }
+
+// KeyValueDescription is a serialization-friendly representation of a KeyValueMatcher.
+type KeyValueDescription struct {
+	ValuePattern RegexpMatcherDescription
+	KeyPattern   RegexpMatcherDescription
+}
+
+func (d KeyValueDescription) String() string {
+	if d.KeyPattern.Value == `` && d.ValuePattern.Value == `` {
+		return ``
+	}
+	return fmt.Sprintf(`{key: /%s/%s, value: /%s/%s}\n`,
+		d.KeyPattern.Value, d.KeyPattern.Flags,
+		d.ValuePattern.Value, d.ValuePattern.Flags)
+}

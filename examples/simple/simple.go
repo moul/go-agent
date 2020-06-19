@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 
 	"github.com/bearer/go-agent"
+	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/examples"
 )
 
@@ -24,8 +24,8 @@ func main() {
 	//
 	// Note that, since the Go runtime httptest uses manually defined clients,
 	// your running HTTP tests will not trigger extra monitoring calls to Bearer.
-	secretKey := os.Getenv(agent.SecretKeyName)
-	if !regexp.MustCompile(agent.SecretKeyPattern).MatchString(secretKey) {
+	secretKey := os.Getenv(config.SecretKeyName)
+	if !config.SecretKeyRegex.MatchString(secretKey) {
 		secretKey = agent.ExampleWellFormedInvalidKey
 	}
 	defer agent.Init(secretKey)()

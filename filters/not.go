@@ -12,7 +12,7 @@ type NotFilter struct {
 
 // Type is part of the Filter interface.
 func (*NotFilter) Type() FilterType {
-	return notFilter
+	return NotFilterType
 }
 
 func (f *NotFilter) ensureFilter() {
@@ -63,4 +63,18 @@ func (f *NotFilter) AddChildren(filters ...Filter) FilterSet {
 		}
 	}
 	return f
+}
+
+func notFilterFromDescription(fm FilterMap, d interface{}) Filter {
+	ch, ok := d.(string)
+	if !ok {
+		return nil
+	}
+	child, ok := fm[ch]
+	if !ok {
+		return nil
+	}
+	f := filterSet{operator: NotFirst}
+	f.AddChildren(child)
+	return &f
 }

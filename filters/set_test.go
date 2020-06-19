@@ -83,9 +83,9 @@ func Test_filterSet_SetMatcher(t *testing.T) {
 }
 
 func TestSetFilter_Type(t *testing.T) {
-	expected := filterSetFilter
+	expected := FilterSetFilterType.String()
 	var f *filterSet
-	actual := f.Type()
+	actual := f.Type().String()
 	if actual != expected {
 		t.Errorf("Type() = %v, want %v", actual, expected)
 	}

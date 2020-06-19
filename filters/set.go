@@ -5,6 +5,8 @@ package filters
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 // FilterSetOperator represents the operators available in Filter sets.
@@ -40,7 +42,7 @@ type filterSet struct {
 }
 
 func (f *filterSet) Type() FilterType {
-	return filterSetFilter
+	return FilterSetFilterType
 }
 
 func (f *filterSet) MatchesCall(request *http.Request, response *http.Response) bool {
@@ -101,4 +103,50 @@ func (f *filterSet) AddChildren(filters ...Filter) FilterSet {
 
 func (f *filterSet) Children() []Filter {
 	return f.children
+}
+
+// NewFilterSet builds a FilterSet from an operator and children Filter instances.
+func NewFilterSet(operator FilterSetOperator, children ...Filter) FilterSet {
+	fs := (&filterSet{operator: operator}).AddChildren(children...)
+	return fs
+}
+
+// FilterSetDescription provides a serialization-friendly description of a FilterSet.
+type FilterSetDescription struct {
+	// ChildHashes is set on filters.FilterSet filters
+	ChildHashes []string
+
+	// Operator is set on filters.FilterSet filters. It may only be `ANY` or `ALL`.
+	Operator string
+}
+
+// String implements fmt.Stringer.
+func (d FilterSetDescription) String() string {
+	if len(d.ChildHashes) > 0 || d.Operator != `` {
+		return fmt.Sprintf("%s(%s)\n", d.Operator, strings.Join(d.ChildHashes, `, `))
+	}
+	return ``
+}
+
+func setFilterFromDescription(filtersMap FilterMap, d interface{}) Filter {
+	fsd, ok := d.(FilterSetDescription)
+	if !ok {
+		return nil
+	}
+	n, err := strconv.Atoi(fsd.Operator)
+	if err != nil {
+		n = 0 // Any
+	}
+	children := make([]Filter, len(fsd.ChildHashes))
+	for _, h := range fsd.ChildHashes {
+		var f Filter
+		f, ok := filtersMap[h]
+		if !ok {
+			return nil
+		}
+		children = append(children, f)
+	}
+
+	f := NewFilterSet(FilterSetOperator(n), children...)
+	return f
 }

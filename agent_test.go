@@ -24,7 +24,7 @@ func TestNewAgent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a, _ := NewAgent(ExampleWellFormedInvalidKey)
+			a, _ := NewAgent(ExampleWellFormedInvalidKey, ioutil.Discard)
 
 			// Set up test server.
 			ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

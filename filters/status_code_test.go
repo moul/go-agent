@@ -70,9 +70,9 @@ func TestStatusCodeFilter_ensureMatcher(t *testing.T) {
 }
 
 func TestStatusCodeFilter_Type(t *testing.T) {
-	expected := statusCodeFilter
+	expected := StatusCodeFilterType.String()
 	var f StatusCodeFilter
-	actual := f.Type()
+	actual := f.Type().String()
 	if actual != expected {
 		t.Errorf("Type() = %v, want %v", actual, expected)
 	}
