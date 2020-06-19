@@ -61,7 +61,7 @@ func NewAgent(secretKey string, logger io.Writer, opts ...config.Option) (*Agent
 	a.config = c
 	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
 		c.SecretKey(), c.RuntimeEnvironmentType(),
-		a.DefaultTransport(), a.Dispatcher, a.Logger())
+		a.DefaultTransport(), a.Logger())
 	go a.Sender.Start()
 
 	dcrp := interception.DCRProvider{DCRs: a.config.DataCollectionRules()}
@@ -140,13 +140,13 @@ func close() error {
 //   - it decorates the transport of the default client and of the clients it may receive.
 //   - it returns a closing function which will ensure orderly termination of the
 //     app, including flushing the list of records not yet transmitted to Bearer.
-func Init(secretKey string, clients ...*http.Client) func() error {
+func Init(secretKey string, opts ...config.Option) func() error {
 	var err error
-	DefaultAgent, err = NewAgent(secretKey, os.Stderr)
+	DefaultAgent, err = NewAgent(secretKey, os.Stderr, opts...)
 	if err != nil {
 		return close
 	}
-	DefaultAgent.DecorateClientTransports(clients...)
+	DefaultAgent.DecorateClientTransports()
 	return close
 }
 
@@ -160,8 +160,6 @@ func (a *Agent) Provider(e events.Event) []events.Listener {
 		l = []events.Listener{
 			interception.RFCListener,
 		}
-	default:
-		// TODO define and implement other build-in listeners, e.g DataCollectionListener.
 	}
 
 	return l

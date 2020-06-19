@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/bearer/go-agent/events"
-	"github.com/bearer/go-agent/filters"
 	"github.com/bearer/go-agent/proxy"
 )
 
@@ -139,7 +138,7 @@ func (BodiesEvent) Topic() events.Topic {
 // ReportEvent is emitted to publish a call proxy.ReportLog.
 type ReportEvent struct {
 	apiEvent
-	filters.Stage
+	proxy.Stage
 	Error  error
 	T0, T1 time.Time
 }

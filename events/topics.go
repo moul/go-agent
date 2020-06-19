@@ -14,4 +14,3 @@ const TopicEmpty = "-empty-"
 // Unlike vanilla strings, Topic instances should match the TopicFormat regexp,
 // for debugging convenience.
 type Topic string
-

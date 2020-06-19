@@ -1,0 +1,23 @@
+digraph godep {
+
+nodesep=0.4
+ranksep=0.8
+node [shape="box",style="rounded,filled"]
+edge [arrowsize="0.5"]
+"github.com/bearer/go-agent" [label="github.com/bearer/go-agent" color="paleturquoise" URL="https://godoc.org/github.com/bearer/go-agent" target="_blank"];
+"github.com/bearer/go-agent" -> "github.com/bearer/go-agent/config";
+"github.com/bearer/go-agent" -> "github.com/bearer/go-agent/events";
+"github.com/bearer/go-agent" -> "github.com/bearer/go-agent/interception";
+"github.com/bearer/go-agent" -> "github.com/bearer/go-agent/proxy";
+"github.com/bearer/go-agent/config" [label="github.com/bearer/go-agent/config" color="paleturquoise" URL="https://godoc.org/github.com/bearer/go-agent/config" target="_blank"];
+"github.com/bearer/go-agent/config" -> "github.com/bearer/go-agent/filters";
+"github.com/bearer/go-agent/config" -> "github.com/bearer/go-agent/interception";
+"github.com/bearer/go-agent/config" -> "github.com/bearer/go-agent/proxy";
+"github.com/bearer/go-agent/events" [label="github.com/bearer/go-agent/events" color="paleturquoise" URL="https://godoc.org/github.com/bearer/go-agent/events" target="_blank"];
+"github.com/bearer/go-agent/filters" [label="github.com/bearer/go-agent/filters" color="paleturquoise" URL="https://godoc.org/github.com/bearer/go-agent/filters" target="_blank"];
+"github.com/bearer/go-agent/interception" [label="github.com/bearer/go-agent/interception" color="paleturquoise" URL="https://godoc.org/github.com/bearer/go-agent/interception" target="_blank"];
+"github.com/bearer/go-agent/interception" -> "github.com/bearer/go-agent/events";
+"github.com/bearer/go-agent/interception" -> "github.com/bearer/go-agent/filters";
+"github.com/bearer/go-agent/interception" -> "github.com/bearer/go-agent/proxy";
+"github.com/bearer/go-agent/proxy" [label="github.com/bearer/go-agent/proxy" color="paleturquoise" URL="https://godoc.org/github.com/bearer/go-agent/proxy" target="_blank"];
+}
