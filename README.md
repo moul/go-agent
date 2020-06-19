@@ -71,8 +71,8 @@ configurations and multiple Bearer agents.
 ## Privacy considerations  / GDPR
 
 Since logging API calls may involve sensitive data, you may want to configure
-custom filters to strip (PII)[https://gdpr.eu/eu-gdpr-personal-data/] from the logs,
-using the `SensitiveKeys` and `SensitiveRegex` options on the agent.
+custom filters to strip [PII](https://gdpr.eu/eu-gdpr-personal-data/) from the 
+logs, using the `SensitiveKeys` and `SensitiveRegex` options on the agent.
 
 
 ## Deployment
@@ -154,6 +154,7 @@ to support to enable them to be sure of the version of the agent actually in use
 
 <!-- See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project. -->
 
+
 ### License
 
 This project is published under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details
@@ -161,9 +162,9 @@ This project is published under the Apache 2.0 License - see the [LICENSE](LICEN
 
 ### Acknowledgments
 
-- The events package is very much inspired by the [PSR-14](https://www.php-fig.org/psr/psr-14/)
-  specification, published under the CC-BY-3.0 UNPORTED license for text and MIT 
-  License for code.
+- The events package is very much inspired by the 
+  [PSR-14](https://www.php-fig.org/psr/psr-14/) specification, published under 
+  the CC-BY-3.0 UNPORTED license for text and MIT License for code.
 - The dependency resolution algorithm in `Description.resolveHashes` is adapted
   from an [article by Ferry Boender], published under a permissive license:
   
