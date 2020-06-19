@@ -274,7 +274,7 @@ func (f *Fetcher) Start() {
 			case <-f.done:
 				return
 			case <-f.ticker.C:
-				f.config.Debug().Msgf(`Background config fetch`)
+				f.config.Trace().Msgf(`Background config fetch`)
 				_ = f.Fetch()
 			}
 		}

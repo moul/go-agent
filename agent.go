@@ -155,7 +155,7 @@ func uninitializedClose(err error) func() error {
 // XXX A placeholder for future logic, as in #BG-14 prevent early termination.
 func close(a *Agent) func() error {
 	return func() error {
-		log.Printf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter)
+		a.Trace().Msgf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter)
 		return nil
 	}
 }

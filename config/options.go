@@ -16,8 +16,7 @@ import (
 
 // OptionDefaults is an always-on Option loading built-in values.
 var OptionDefaults Option = func(c *Config) error {
-	defaultLogger := zerolog.New(os.Stderr)
-	c.Logger = &defaultLogger
+	c.Logger = defaultLogger()
 	c.runtimeEnvironmentType = DefaultRuntimeEnvironmentType
 	c.configEndpoint = DefaultConfigEndpoint
 	c.ReportEndpoint = DefaultReportEndpoint

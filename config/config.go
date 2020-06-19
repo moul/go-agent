@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +21,10 @@ const (
 	// specific to each client. Fetching the secret key from the environment is a
 	// best practice in 12-factor application development.
 	SecretKeyName = `BEARER_SECRETKEY`
+
+	// TraceLoggingName is the environment variable used to enable tracing in logs,
+	// when the application uses the default logger instead of injecting its own.
+	TraceLoggingName = `BEARER_TRACE`
 
 	// DefaultRuntimeEnvironmentType is the default environment type.
 	DefaultRuntimeEnvironmentType = "development" // "default"
@@ -44,6 +50,9 @@ const (
 // It is used to verify the shape of submitted secret keys, before they are
 // sent over to Bearer for value validation.
 var SecretKeyRegex = regexp.MustCompile(`^app_[[:xdigit:]]{50}$`)
+
+// TraceLogging is set in init() and enabled the default logger for Trace level.
+var TraceLogging = false
 
 // Config represents the Agent configuration.
 type Config struct {
@@ -145,6 +154,18 @@ func (c *Config) DataCollectionRules() []*interception.DataCollectionRule {
 // Option is the type use by functional options for configuration.
 type Option func(*Config) error
 
+// defaultLogger builds a logger to os.Stderr that won't log Trace information.
+func defaultLogger() *zerolog.Logger {
+	logger := zerolog.New(os.Stderr)
+	logger = logger.Hook(zerolog.HookFunc(func(e *zerolog.Event, level zerolog.Level, message string) {
+		if TraceLogging || level != zerolog.TraceLevel {
+			return
+		}
+		e.Discard()
+	}))
+	return &logger
+}
+
 // NewConfig is the default Config constructor: it builds a configuration from
 // the builtin agent defaults, the environment, the Bearer platform configuration
 // and any optional Option values passed by the caller.
@@ -171,4 +192,16 @@ func NewConfig(secretKey string, transport http.RoundTripper, version string, op
 		_ = WithLogger(os.Stderr)(c)
 	}
 	return c, nil
+}
+
+func init() {
+	t := strings.ToUpper(strings.Trim(os.Getenv(TraceLoggingName), " \r\n\t"))
+	if t == `TRUE` || t == `T` || t == `YES` || t == `Y` || t == `ON` {
+		TraceLogging = true
+		return
+	}
+	if n, err := strconv.Atoi(t); err != nil && n != 0 {
+		TraceLogging = true
+		return
+	}
 }
