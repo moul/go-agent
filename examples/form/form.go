@@ -42,7 +42,7 @@ func main() {
 	// request and response headers.
 	examples.APIURL = `https://ac.audean.com/sc.php`
 	res, err := http.PostForm(examples.APIURL, url.Values{
-		`user`: {`20`},
+		`user`: {`xyzzy`},
 	})
 	if err != nil {
 		log.Fatalf("calling %s: %v", examples.APIURL, err)

@@ -1,9 +1,12 @@
 package interception
 
 import (
+	"context"
+	"io/ioutil"
 	"net/url"
-	"reflect"
 	"testing"
+
+	"github.com/rs/zerolog"
 
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/proxy"
@@ -68,27 +71,22 @@ func TestConnectEvent_Topic(t *testing.T) {
 }
 
 func TestDCRProvider_Listeners(t *testing.T) {
-	type fields struct {
-		DCRs []*DataCollectionRule
-	}
-	type args struct {
-		e events.Event
-	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   []events.Listener
+		name    string
+		topic   events.Topic
+		wantLen int
 	}{
-		// TODO: Add test cases.
+		{`happy connect`, TopicConnect, 1},
+		{`happy request`, TopicRequest, 1},
+		{`happy response`, TopicResponse, 1},
+		{`happy bodies`, TopicBodies, 1},
+		{`sad report`, TopicReport, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := DCRProvider{
-				DCRs: tt.fields.DCRs,
-			}
-			if got := p.Listeners(tt.args.e); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Listeners() = %v, want %v", got, tt.want)
+			p := DCRProvider{}
+			if got := p.Listeners((&events.EventBase{}).SetTopic(string(tt.topic))); len(got) != tt.wantLen {
+				t.Errorf("Listeners() = %d, want %d", len(got), tt.wantLen)
 			}
 		})
 	}
@@ -116,27 +114,19 @@ func TestNewConnectEvent(t *testing.T) {
 }
 
 func TestProxyProvider_Listeners(t *testing.T) {
-	type fields struct {
-		Sender *proxy.Sender
-	}
-	type args struct {
-		e events.Event
-	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   []events.Listener
+		name    string
+		topic   events.Topic
+		wantLen int
 	}{
-		// TODO: Add test cases.
+		{`happy`, TopicReport, 1},
+		{`sad`, TopicConnect, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := ProxyProvider{
-				Sender: tt.fields.Sender,
-			}
-			if got := p.Listeners(tt.args.e); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Listeners() = %v, want %v", got, tt.want)
+			p := ProxyProvider{}
+			if got := p.Listeners((&events.EventBase{}).SetTopic(string(tt.topic))); len(got) != tt.wantLen {
+				t.Errorf("Listeners() = %d, want %d", len(got), tt.wantLen)
 			}
 		})
 	}
@@ -162,21 +152,18 @@ func TestReportEvent_Topic(t *testing.T) {
 }
 
 func TestRequestEvent_Topic(t *testing.T) {
-	type fields struct {
-		apiEvent apiEvent
-	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   events.Topic
+		name  string
+		topic string
+		want  events.Topic
 	}{
-		// TODO: Add test cases.
+		{`happy`, string(TopicRequest), TopicRequest},
+		{`sad`, `whatever`, TopicRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			re := RequestEvent{
-				apiEvent: tt.fields.apiEvent,
-			}
+			re := RequestEvent{}
+			re.SetTopic(tt.topic)
 			if got := re.Topic(); got != tt.want {
 				t.Errorf("Topic() = %v, want %v", got, tt.want)
 			}
@@ -185,21 +172,18 @@ func TestRequestEvent_Topic(t *testing.T) {
 }
 
 func TestResponseEvent_Topic(t *testing.T) {
-	type fields struct {
-		apiEvent apiEvent
-	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   events.Topic
+		name  string
+		topic string
+		want  events.Topic
 	}{
-		// TODO: Add test cases.
+		{`happy`, string(TopicResponse), TopicResponse},
+		{`sad`, `whatever`, TopicResponse},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			re := ResponseEvent{
-				apiEvent: tt.fields.apiEvent,
-			}
+			re := ResponseEvent{}
+			re.SetTopic(tt.topic)
 			if got := re.Topic(); got != tt.want {
 				t.Errorf("Topic() = %v, want %v", got, tt.want)
 			}
@@ -207,55 +191,49 @@ func TestResponseEvent_Topic(t *testing.T) {
 	}
 }
 
-func Test_apiEvent_LogLevel(t *testing.T) {
-	type fields struct {
-		EventBase events.EventBase
-		logLevel  LogLevel
-	}
+func Test_apiEvent_SetLogLevel(t *testing.T) {
 	tests := []struct {
-		name   string
-		fields fields
-		want   LogLevel
+		name     string
+		logLevel LogLevel
+		want     LogLevel
 	}{
-		// TODO: Add test cases.
+		{`happy`, Restricted, Restricted},
+		{`sad`, -2, Restricted},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ae := &apiEvent{
-				EventBase: tt.fields.EventBase,
-				logLevel:  tt.fields.logLevel,
-			}
-			if got := ae.LogLevel(); got != tt.want {
-				t.Errorf("LogLevel() = %v, want %v", got, tt.want)
+			ae := &apiEvent{}
+			ae.SetLogLevel(tt.logLevel)
+			actual := ae.LogLevel()
+			if actual != tt.want {
+				t.Errorf("SetLogLevel() = %v, want %v", actual, tt.want)
 			}
 		})
 	}
 }
 
-func Test_apiEvent_SetLogLevel(t *testing.T) {
-	type fields struct {
-		EventBase events.EventBase
-		logLevel  LogLevel
-	}
-	type args struct {
-		l LogLevel
+func TestProxyProvider_onReport(t *testing.T) {
+	stubLogger := zerolog.New(ioutil.Discard)
+	stubSender := proxy.Sender{
+		FanIn:  nil,
+		Logger: &stubLogger,
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   APIEvent
+		name    string
+		Sender  *proxy.Sender
+		e       events.Event
+		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{`happy`, &stubSender, NewReportEvent(Restricted, proxy.StageConnect, nil), false},
+		{`sad bad event`, &stubSender, &events.EventBase{}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ae := &apiEvent{
-				EventBase: tt.fields.EventBase,
-				logLevel:  tt.fields.logLevel,
+			p := ProxyProvider{
+				Sender: tt.Sender,
 			}
-			if got := ae.SetLogLevel(tt.args.l); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SetLogLevel() = %v, want %v", got, tt.want)
+			if err := p.onReport(context.Background(), tt.e); (err != nil) != tt.wantErr {
+				t.Errorf("onReport() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
