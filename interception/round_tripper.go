@@ -2,6 +2,7 @@ package interception
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,11 +33,12 @@ var schemeRegexp = regexp.MustCompile(`^[\w][-+.\w]+$`)
 func RFCListener(_ context.Context, e events.Event) error {
 	ce, ok := e.(*ConnectEvent)
 	if !ok {
-		return nil
+		return errors.New(`the RFCListener is only used with ConnectEvent`)
 	}
-	url, ok := ce.Data().(*url.URL)
+	data := ce.Data()
+	url, ok := data.(*url.URL)
 	if !ok {
-		return nil
+		return errors.New(`no URL found in ConnectEvent`)
 	}
 
 	ce.Host = url.Hostname()

@@ -227,12 +227,13 @@ func TestProxyProvider_onReport(t *testing.T) {
 		{`happy`, &stubSender, NewReportEvent(Restricted, proxy.StageConnect, nil), false},
 		{`sad bad event`, &stubSender, &events.EventBase{}, true},
 	}
+	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := ProxyProvider{
 				Sender: tt.Sender,
 			}
-			if err := p.onReport(context.Background(), tt.e); (err != nil) != tt.wantErr {
+			if err := p.onReport(ctx, tt.e); (err != nil) != tt.wantErr {
 				t.Errorf("onReport() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
