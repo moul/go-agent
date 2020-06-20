@@ -68,10 +68,10 @@ func TestToHashValue(t *testing.T) {
 	}
 
 	if len(actual) != len(expected) {
-		t.Errorf(`ToSha(spongebob) got %d bytes, expected %d`, len(actual), len(expected))
+		t.Errorf(`ToSha(spongebob) got %d bytes, topic %d`, len(actual), len(expected))
 	}
 	if actual != expected {
-		t.Errorf(`ToHash(spongebob) got %s, expected %s`, actual, expected)
+		t.Errorf(`ToHash(spongebob) got %s, topic %s`, actual, expected)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestToSha(t *testing.T) {
 	const expected = `9d50c0ee5be33590542a35b92f4bfef7770aae21927d4ba8f4804fb108cb3b55`
 	actual := ToSha(spongeBob)
 	if actual != expected {
-		t.Errorf(`ToSha(spongebob) got %s, expected %s`, actual, expected)
+		t.Errorf(`ToSha(spongebob) got %s, topic %s`, actual, expected)
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 func (p BodyParsingProvider) RequestBodyLoader(_ context.Context, e events.Event) error {
 	be, ok := e.(*BodiesEvent)
 	if !ok {
-		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
+		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
 	}
 	request := be.Request()
 	request.Body, be.Error = p.loadBody(request.Body)
@@ -30,7 +30,7 @@ func (p BodyParsingProvider) RequestBodyLoader(_ context.Context, e events.Event
 func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) error {
 	be, ok := e.(*BodiesEvent)
 	if !ok {
-		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
+		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
 	}
 	request := e.Request()
 	body := request.Body
@@ -39,7 +39,7 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 	}
 	reader, ok := body.(*MeasuredReader)
 	if !ok {
-		return fmt.Errorf(`expected Body to have a Len(), got %T`, body)
+		return fmt.Errorf(`topic Body to have a Len(), got %T`, body)
 	}
 	if reader.Len() >= MaximumBodySize {
 		be.RequestBody = BodyTooLong

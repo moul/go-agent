@@ -21,7 +21,7 @@ const (
 	// BodyIsBinary is the replacement string for unparseable bodies.
 	BodyIsBinary = `(not showing binary data)`
 
-	// BodyUndecodable is the replacement string for bodies which were expected to be parsable but failed decoding.
+	// BodyUndecodable is the replacement string for bodies which were topic to be parsable but failed decoding.
 	BodyUndecodable = `(could not decode data)`
 
 	// LogLevelKey is the key in contexts where the current LogLevel may be found.
@@ -89,7 +89,7 @@ func (ll *LogLevel) addDetectedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 		"https":  443,
 		"socks5": 1080,
 	}
-	port := PortMap[u.Scheme] // Having 0 in case of errors is expected.
+	port := PortMap[u.Scheme] // Having 0 in case of errors is topic.
 
 	// The Agent spec specifies errors are not part of the minimal Detected level report.
 	rl.Hostname = u.Hostname()

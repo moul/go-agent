@@ -80,7 +80,8 @@ type ConnectEvent struct {
 }
 
 // Request overrides the events.EventBase.Request method, building an on-the-fly
-// request from the event fields.
+// request from the event fields. It accepts building partial URLs, which may be
+// invalid.
 func (re ConnectEvent) Request() *http.Request {
 	req, _ := http.NewRequest(``, (&url.URL{
 		Scheme: re.Scheme,
@@ -99,22 +100,6 @@ func NewConnectEvent(url *url.URL) *ConnectEvent {
 	e := &ConnectEvent{}
 	e.SetData(url)
 	return e
-}
-
-// NewReportEvent builds a ReportEvent, empty but for logLevel, stage, and error.
-func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
-	be := &BodiesEvent{
-		apiEvent: apiEvent{
-			EventBase: events.EventBase{Error: err},
-			logLevel:  logLevel,
-		},
-	}
-	be.SetTopic(string(TopicRequest))
-
-	return &ReportEvent{
-		BodiesEvent: be,
-		Stage: stage,
-	}
 }
 
 // RequestEvent is the type of events dispatched at the TopicRequest stages.
@@ -156,6 +141,22 @@ type ReportEvent struct {
 // Topic is part of the Event interface.
 func (ReportEvent) Topic() events.Topic {
 	return TopicReport
+}
+
+// NewReportEvent builds a ReportEvent, empty but for logLevel, stage, and error.
+func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
+	be := &BodiesEvent{
+		apiEvent: apiEvent{
+			EventBase: events.EventBase{Error: err},
+			logLevel:  logLevel,
+		},
+	}
+	be.SetTopic(string(TopicRequest))
+
+	return &ReportEvent{
+		BodiesEvent: be,
+		Stage: stage,
+	}
 }
 
 // DCRProvider is an events.Listener provider returning listeners based on the

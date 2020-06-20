@@ -41,7 +41,7 @@ func TestBodyParsingProvider_ResponseBodyLoader(t *testing.T) {
 			loadedBody := be.Response().Body
 			mb, ok := loadedBody.(*MeasuredReader)
 			if !ok {
-				t.Fatalf(`ResponseBodyLoader: got %T, expected %T`, loadedBody, mb)
+				t.Fatalf(`ResponseBodyLoader: got %T, topic %T`, loadedBody, mb)
 			}
 
 			_ = body.Close()
