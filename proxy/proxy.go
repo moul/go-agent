@@ -17,7 +17,7 @@ import (
 
 const (
 	// AckBacklog is the capacity of the log write acknowledgments channel.
-	AckBacklog     = 1000
+	AckBacklog = 1000
 	// QuietLoopPause is the duration of the pause the Start loop will enter
 	// if no I/O is available, to avoid consuming too much power by tight looping.
 	QuietLoopPause = 10 * time.Millisecond
@@ -267,12 +267,8 @@ func (s *Sender) WriteLog(rl ReportLog) {
 	lr.SecretKey = s.SecretKey
 	lr.Logs = []ReportLog{rl}
 
-	body, err := json.Marshal(lr)
-	if err != nil {
-		s := err.Error()
-		msg := struct{ Error string }{Error: s}
-		body, _ = json.Marshal(msg)
-	}
+	// Cannot fail: the LogReport is made of basic JSON types.
+	body, _ := json.Marshal(lr)
 
 	req, err := http.NewRequest(http.MethodPost, s.LogEndpoint, bytes.NewReader(body))
 	if err != nil {
@@ -288,6 +284,9 @@ func (s *Sender) WriteLog(rl ReportLog) {
 	} else {
 		if res.StatusCode < http.StatusContinue || res.StatusCode >= http.StatusBadRequest {
 			logsBody, err := ioutil.ReadAll(res.Body)
+			if len(logsBody) == 0 {
+				logsBody = []byte(`[]`)
+			}
 			s.Warn().
 				RawJSON("report", body).
 				Err(err).
@@ -295,10 +294,12 @@ func (s *Sender) WriteLog(rl ReportLog) {
 				Msgf(`got response %d %s transmitting log %d to the report server.`, res.StatusCode, res.Status, s.Counter)
 			return
 		}
+		resBody, _ := ioutil.ReadAll(res.Body)
 		s.Trace().
 			Uint("reportId", s.Counter).
 			Str("status", res.Status).
 			RawJSON("report", body).
+			Bytes("response", resBody).
 			Send()
 	}
 }
@@ -309,7 +310,7 @@ func NewReportLossReport(n uint) ReportLog {
 		Type:             Loss,
 		Stage:            StageUndefined,
 		ErrorCode:        strconv.Itoa(int(n)),
-		ErrorFullMessage: fmt.Sprintf("%d report logs were logs", n),
+		ErrorFullMessage: fmt.Sprintf("%d report logs were lost", n),
 	}
 }
 

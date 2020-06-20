@@ -1,6 +1,11 @@
 package proxy_test
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"strings"
@@ -27,11 +32,10 @@ func (b *ConcurrentBuilder) String() string {
 }
 
 func (b *ConcurrentBuilder) Write(p []byte) (int, error) {
-		b.Lock()
-		defer b.Unlock()
-		return b.Builder.Write(p)
+	b.Lock()
+	defer b.Unlock()
+	return b.Builder.Write(p)
 }
-
 
 func makeTestSender() (*proxy.Sender, *ConcurrentBuilder) {
 	sb := &ConcurrentBuilder{}
@@ -175,5 +179,87 @@ func TestSender_StartHappyAck(t *testing.T) {
 	l = len(s)
 	if l != 3 {
 		t.Errorf("sender did not log finishing. Expected %d lines, got %d: %v", 2, l-1, s)
+	}
+}
+
+func TestNewReportLossReport(t *testing.T) {
+	tests := []struct {
+		name        string
+		n           uint
+		wantCode    string
+		wantMessage string
+	}{
+		{`no loss`, 0, `0`, `0 report logs were lost`},
+		{`losses`, 10, `10`, `10 report logs were lost`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := proxy.NewReportLossReport(tt.n)
+			if actualCode := fmt.Sprint(got.ErrorCode); actualCode != tt.wantCode {
+				t.Errorf("NewReportLossRport() code = %s, want %s", actualCode, tt.wantCode)
+			}
+			if actualMsg := got.ErrorFullMessage; actualMsg != tt.wantMessage {
+				t.Errorf("NewReportLossReport() = %v, want %v", got, tt.wantMessage)
+			}
+		})
+	}
+}
+
+func TestSender_WriteLog(t *testing.T) {
+	tests := []struct {
+		name        string
+		logEndpoint string
+		method      string
+		wantErr     bool
+	}{
+		{`happy`, ``, ``, false},
+		{`sad bad endpoint`, `_://`, ``, true},
+		{`sad mute endpoint`, `http://example.invalid`, ``, true},
+		{`sad rejected response`, ``, http.MethodConnect, true},
+	}
+	// Set up test server.
+	ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		body, _ := ioutil.ReadAll(request.Body)
+		lr := proxy.LogReport{}
+		err := json.Unmarshal(body, &lr)
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		method := lr.Logs[0].Method
+		if method != `` && method != http.MethodGet {
+			writer.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer ts.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, cb := makeTestSender()
+			s.Client = *ts.Client()
+			if tt.logEndpoint != `` {
+				s.LogEndpoint = tt.logEndpoint
+			} else {
+				s.LogEndpoint = ts.URL
+			}
+
+			s.WriteLog(proxy.ReportLog{Method: tt.method})
+			log := struct {
+				Level    string
+				ReportId int
+				Status   string
+			}{}
+			err := json.Unmarshal([]byte(cb.String()), &log)
+			if err != nil {
+				t.Fatalf(`unexpected log format: %v`, err)
+			}
+			wantLevel := `trace`
+			if tt.wantErr {
+				wantLevel = `warn`
+			}
+			if log.Level != wantLevel {
+				t.Fatalf(`unexpected log level during report: %s want %s`, log.Level, wantLevel)
+			}
+		})
 	}
 }
