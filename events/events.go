@@ -94,11 +94,10 @@ func (eb *EventBase) Topic() Topic {
 	return eb.topic
 }
 
-// WithTopic returns a new event based on the original one, with the name
-// changed, allowing the original event to remain un-mutated.
+// SetTopic is a setter for the topic.
 // If the requested topic does not match the expected Topic format, it is modified
 // to match it.
-func (eb EventBase) WithTopic(topic string) Event {
+func (eb *EventBase) SetTopic(topic string) Event {
 	reMatcher := regexp.MustCompile(TopicFormat)
 	if !reMatcher.MatchString(topic) {
 		reReplacer := regexp.MustCompile(TopicReplacement)
@@ -108,7 +107,7 @@ func (eb EventBase) WithTopic(topic string) Event {
 		topic = TopicEmpty
 	}
 	eb.topic = Topic(topic)
-	return &eb
+	return eb
 }
 
 // NewEvent returns a basic Event implementation.
@@ -117,6 +116,6 @@ func (eb EventBase) WithTopic(topic string) Event {
 // an incorrect topic by just doing NewEvent(Topic(somestring)), thus bypassing
 // topic format checks.
 func NewEvent(topic string) Event {
-	e := EventBase{}.WithTopic(topic)
+	e := (&EventBase{}).SetTopic(topic)
 	return e
 }

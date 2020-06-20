@@ -255,7 +255,7 @@ func TestSanitizationProvider_SanitizeRequestBody(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &interception.ReportEvent{
-				BodiesEvent: interception.BodiesEvent{RequestBody: tt.body},
+				BodiesEvent: &interception.BodiesEvent{RequestBody: tt.body},
 			}
 			if err := p.SanitizeRequestBody(context.Background(), e); (err != nil) != tt.wantErr {
 				t.Errorf("SanitizeRequestBody() error = %v, wantErr %v", err, tt.wantErr)
@@ -285,7 +285,7 @@ func TestSanitizationProvider_SanitizeResponseBody(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &interception.ReportEvent{
-				BodiesEvent: interception.BodiesEvent{ResponseBody: tt.body},
+				BodiesEvent: &interception.BodiesEvent{ResponseBody: tt.body},
 			}
 			if err := p.SanitizeResponseBody(context.Background(), e); (err != nil) != tt.wantErr {
 				t.Errorf("SanitizeResponseBody() error = %v, wantErr %v", err, tt.wantErr)

@@ -8,10 +8,24 @@ import (
 	"github.com/bearer/go-agent/events"
 )
 
-// MeasuredReader is a bytes.Reader, but with a VLen method on the value in
+// MeasuredReader is a bytes.Reader, but with a Len method on the value in
 // addition to the Len() value on the pointer, to allow type assertions on bodies,
 // and with a built-in Nop Close.
 type MeasuredReader bytes.Reader
+
+// Clone returns a new MeasuredReader based on the same data, but with an independent
+// underlying []byte, ensuring interception does not interfere with HTTP processing.
+func (b *MeasuredReader) Clone() (*MeasuredReader, error) {
+	pos, _ := b.Seek(0, io.SeekCurrent)
+	_, _ = b.Seek(0, io.SeekStart)
+	buffer := &bytes.Buffer{}
+	// In this specific case, io.Copy cannot fail.
+	_, _ = io.Copy(buffer, b)
+	// io.Copy moved within the reader, return to its original position.
+	_, _ = b.Seek(pos, io.SeekStart)
+	r := (*MeasuredReader)(bytes.NewReader(buffer.Bytes()))
+	return r, nil
+}
 
 // Read is part of io.Reader and io.ReadCloser interfaces, and defers to bytes.Reader
 // for actual implementation.
@@ -38,12 +52,40 @@ func (b *MeasuredReader) Seek(offset int64, whence int) (int64, error) {
 	return buffer.Seek(offset, whence)
 }
 
+// BodyParsingProvider is an events.Listener provider returning listeners
+// performing data collection, hashing, and sanitization on request/reponse
+// bodies.
+type BodyParsingProvider struct{}
+
+// Listeners implements events.ListenerProvider.
+func (p BodyParsingProvider) Listeners(e events.Event) (l []events.Listener) {
+	switch e.Topic() {
+	case TopicRequest:
+		l = []events.Listener{
+			p.RequestBodyLoader,
+		}
+	case TopicBodies:
+		l = []events.Listener{
+			p.RequestBodyLoader,
+			p.ResponseBodyLoader,
+			p.RequestBodyParser,
+			p.ResponseBodyParser,
+		}
+	}
+	return
+}
+
 // Force body reading.
 func (p BodyParsingProvider) loadBody(body io.ReadCloser) (io.ReadCloser, error) {
 	if body == nil {
 		return body, nil
 	}
 	defer body.Close()
+	mr, ok := body.(*MeasuredReader)
+	// Take shortcut if available.
+	if ok {
+		return mr.Clone()
+	}
 
 	b, err := ioutil.ReadAll(body)
 	if err != nil {
@@ -51,23 +93,4 @@ func (p BodyParsingProvider) loadBody(body io.ReadCloser) (io.ReadCloser, error)
 	}
 	buf := (*MeasuredReader)(bytes.NewReader(b))
 	return buf, nil
-}
-
-// BodyParsingProvider is an events.Listener provider returning listeners
-// performing data collection, hashing, and sanitization on request/reponse
-// bodies.
-type BodyParsingProvider struct{}
-
-// Listeners implements events.ListenerProvider.
-func (p BodyParsingProvider) Listeners(e events.Event) []events.Listener {
-	if e.Topic() != TopicBodies {
-		return nil
-	}
-
-	return []events.Listener{
-		p.RequestBodyLoader,
-		p.ResponseBodyLoader,
-		p.RequestBodyParser,
-		p.ResponseBodyParser,
-	}
 }

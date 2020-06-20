@@ -62,6 +62,13 @@ func (p BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event
 		be.RequestSha = ToSha(reader)
 		_, _ = reader.Seek(0, io.SeekStart)
 	case FormContentType.MatchString(ct):
+		err := request.ParseForm()
+		if err != nil {
+			be.RequestBody = BodyUndecodable
+			return fmt.Errorf("decoding HTML form request body: %w", err)
+		}
+		be.RequestBody = request.Form
+		be.RequestSha = ToSha(request.Form)
 		return nil
 	}
 

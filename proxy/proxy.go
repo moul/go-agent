@@ -33,6 +33,12 @@ const (
 	// ContentTypeHeader is the canonical content type header name.
 	ContentTypeHeader = `Content-Type`
 
+	// FullContentTypeHTML is the content type for HTML.
+	FullContentTypeHTML = `text/html; charset=utf-8`
+
+	// ContentTypeSimpleForm is the content type for non-multipart HTML forms.
+	ContentTypeSimpleForm = `application/x-www-form-urlencoded`
+
 	// ContentTypeJSON is the canonical content type header value for JSON.
 	ContentTypeJSON = `application/json`
 
