@@ -32,11 +32,11 @@ func TestMeasuredReader_Clone(t *testing.T) {
 				t.Fatalf(`after seek, failed reading from clone: %v`, err)
 			}
 			if n != len(tt.message) {
-				t.Fatalf(`after seek, failed reading original length from clone: clone %d, topic %d`, n, len(tt.message))
+				t.Fatalf(`after seek, failed reading original length from clone: clone %d, expected %d`, n, len(tt.message))
 			}
 			actual := string(sl)
 			if actual != tt.message {
-				t.Fatalf(`after seek, clone = %s, topic %s`, actual, tt.message)
+				t.Fatalf(`after seek, clone = %s, expected %s`, actual, tt.message)
 			}
 
 			// Close original testReader to ensure clone is not affected.
@@ -48,11 +48,11 @@ func TestMeasuredReader_Clone(t *testing.T) {
 				t.Fatalf(`after close, failed reading from clone: %v`, err)
 			}
 			if n != len(tt.message) {
-				t.Fatalf(`after close, failed reading original length from clone: clone %d, topic %d`, n, len(tt.message))
+				t.Fatalf(`after close, failed reading original length from clone: clone %d, expected %d`, n, len(tt.message))
 			}
 			actual = string(sl)
 			if actual != tt.message {
-				t.Fatalf(`after close, clone = %s, topic %s`, actual, tt.message)
+				t.Fatalf(`after close, clone = %s, expected %s`, actual, tt.message)
 			}
 		})
 	}

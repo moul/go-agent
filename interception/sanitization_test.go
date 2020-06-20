@@ -78,12 +78,12 @@ func TestSanitizationProvider_SanitizeQueryAndPaths(t *testing.T) {
 			}
 			actualReqURL := e.Request().URL.String()
 			if actualReqURL != tt.expectedReqURL {
-				t.Errorf(`sanitizeQueryAndPaths URL: got %s, topic %s`, actualReqURL, tt.expectedReqURL)
+				t.Errorf(`sanitizeQueryAndPaths URL: got %s, expected %s`, actualReqURL, tt.expectedReqURL)
 			}
 
 			actualResReqURL := e.Response().Request.URL.String()
 			if actualResReqURL != tt.expectedResReqURL {
-				t.Errorf(`sanitizeQueryAndPaths response URL: got %s, topic %s`, actualResReqURL, tt.expectedResReqURL)
+				t.Errorf(`sanitizeQueryAndPaths response URL: got %s, expected %s`, actualResReqURL, tt.expectedResReqURL)
 			}
 		})
 	}
@@ -159,7 +159,7 @@ func TestSanitizationProvider_SanitizeRequestHeaders(t *testing.T) {
 			}
 			actualReqValues := e.Request().Header.Values(tt.reqName)
 			if !reflect.DeepEqual(actualReqValues, tt.expectedReqValues) {
-				t.Errorf(`sanitizeRequestHeaders for %s topic %v, got %v`, tt.reqName, tt.expectedReqValues, actualReqValues)
+				t.Errorf(`sanitizeRequestHeaders for %s expected %v, got %v`, tt.reqName, tt.expectedReqValues, actualReqValues)
 			}
 
 		})
@@ -200,7 +200,7 @@ func TestSanitizationProvider_SanitizeResponseHeaders(t *testing.T) {
 			}
 			actualValues := e.Response().Header.Values(tt.Name)
 			if !reflect.DeepEqual(actualValues, tt.expectedValues) {
-				t.Errorf(`sanitizeResponseHeaders for %s topic %v, got %v`, tt.Name, tt.expectedValues, actualValues)
+				t.Errorf(`sanitizeResponseHeaders for %s expected %v, got %v`, tt.Name, tt.expectedValues, actualValues)
 			}
 
 		})
@@ -262,7 +262,7 @@ func TestSanitizationProvider_SanitizeRequestBody(t *testing.T) {
 			}
 			actual, expected := e.RequestBody, tt.expected
 			if !reflect.DeepEqual(actual, expected) {
-				t.Errorf("SanitizeRequestBody got %v topic %v", e.RequestBody, tt.expected)
+				t.Errorf("SanitizeRequestBody got %v expected %v", e.RequestBody, tt.expected)
 			}
 		})
 	}
@@ -292,7 +292,7 @@ func TestSanitizationProvider_SanitizeResponseBody(t *testing.T) {
 			}
 			actual, expected := e.ResponseBody, tt.expected
 			if !reflect.DeepEqual(actual, expected) {
-				t.Errorf("SanitizeResponseBody got %v topic %v", e.ResponseBody, tt.expected)
+				t.Errorf("SanitizeResponseBody got %v expected %v", e.ResponseBody, tt.expected)
 			}
 		})
 	}

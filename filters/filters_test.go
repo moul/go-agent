@@ -48,7 +48,7 @@ func TestNewFilterFromDescription(t *testing.T) {
 		{`response headers`, ResponseHeadersFilterType, &ResponseHeadersFilter{NewKeyValueMatcher(``, ``)}},
 		{`status`, StatusCodeFilterType, &StatusCodeFilter{NewRangeMatcher().From(0).To(0)}},
 		{`error`, ConnectionErrorFilterType, &ConnectionErrorFilter{}},
-		{`yes`, yesInternalFilter, &YesFilter{}},
+		{`yes`, YesInternalFilter, &YesFilter{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

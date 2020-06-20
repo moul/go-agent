@@ -208,11 +208,8 @@ func NewFetcher(transport http.RoundTripper, logger *zerolog.Logger, version str
 // and ignored.
 func (f *Fetcher) Fetch() (*Description, error) {
 	report := &bytes.Buffer{}
-	err := json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.environmentType, f.secretKey))
-	if err != nil {
-		f.logger.Warn().Msgf("building Bearer config report: %v", err)
-		return nil, err
-	}
+	// Cannot fail, the only possible error coming from os.Hostname() is handled.
+	_ = json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.environmentType, f.secretKey))
 
 	req, err := http.NewRequest(http.MethodPost, f.endpoint, report)
 	if err != nil {
@@ -249,10 +246,8 @@ func (f *Fetcher) Fetch() (*Description, error) {
 		if ok {
 			f.logger.Warn().Str(`config error message`, errMessage).Msg(message)
 		} else {
-			j, err := json.Marshal(remoteConf.Error)
-			if err != nil {
-				f.logger.Warn().RawJSON(`config response`, body).Msg(message)
-			}
+			// Error cannot happen, since it just came from JSON decoded content.
+			j, _ := json.Marshal(remoteConf.Error)
 			f.logger.Warn().RawJSON(`config error`, j).Msg(message)
 		}
 		return nil, errors.New(message)
@@ -275,7 +270,7 @@ func (f *Fetcher) Start(configSetter func(*Description)) {
 		f.ticker = time.NewTicker(DefaultFetchInterval)
 	}
 	go func() {
-		defer f.ticker.Stop()
+		defer f.Stop()
 		for {
 			select {
 			case <-f.done:

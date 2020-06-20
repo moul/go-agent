@@ -49,7 +49,7 @@ func TestBodyParsingProvider_RequestBodyLoader(t *testing.T) {
 			loadedBody := be.Request().Body
 			mb, ok := loadedBody.(*MeasuredReader)
 			if !ok {
-				t.Fatalf(`RequestBodyLoader: got %T, topic %T`, loadedBody, mb)
+				t.Fatalf(`RequestBodyLoader: got %T, expected %T`, loadedBody, mb)
 			}
 
 			_ = body.Close()

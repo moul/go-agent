@@ -11,7 +11,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/interception"
 	"github.com/bearer/go-agent/proxy"
@@ -118,7 +117,7 @@ func TestAgent_Provider(t *testing.T) {
 func Test_close(t *testing.T) {
 	sb := &strings.Builder{}
 	z := zerolog.New(sb)
-	a := Agent{config: &config.Config{Logger: &z}, Sender: &proxy.Sender{}}
+	a := Agent{config: &Config{Logger: &z}, Sender: &proxy.Sender{}}
 	closer := close(&a)
 	if closer == nil {
 		t.Fatalf(`non-callable close result`)

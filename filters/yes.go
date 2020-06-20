@@ -11,7 +11,7 @@ type YesFilter struct{}
 
 // Type is part of the Filter interface.
 func (*YesFilter) Type() FilterType {
-	return yesInternalFilter
+	return YesInternalFilter
 }
 
 // MatchesCall is part of the Filter interface.

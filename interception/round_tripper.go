@@ -67,7 +67,7 @@ func RFCListener(_ context.Context, e events.Event) error {
 
 	intPort, err := strconv.Atoi(sPort)
 	if err != nil {
-		// This might be a case for a panic, since URL.Port() is topic to
+		// This might be a case for a panic, since URL.Port() is expected to
 		// return an empty string if the port is not numeric.
 		return fmt.Errorf("ill-formed port [%s]", sPort)
 	}

@@ -118,7 +118,7 @@ conduct, and the process for submitting pull requests to us.
 
 ### Running the tests
 
-The run the 450+ tests in the package, you can use `go test` if you wish, or run
+The run the 540+ tests in the package, you can use `go test` if you wish, or run
 the preconfigured `go test` commands in the `Makefile`:
 
 - `make test_quick` runs the tests as fast as possible, not checking for race conditions

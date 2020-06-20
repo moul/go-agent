@@ -93,7 +93,8 @@ var (
 
 	// ConnectionErrorFilterType describes ConnectionErrorFilter.
 	ConnectionErrorFilterType FilterType = filterType{"ConnectionErrorFilter", connectionErrorFilterFromDescription, false, false}
-	yesInternalFilter FilterType = filterType{"YesFilter", yesFilterFromDescription, false, false}
+	// YesInternalFilter described YesFilter, an internal use filter.
+	YesInternalFilter FilterType = filterType{"YesFilter", yesFilterFromDescription, false, false}
 )
 
 // FilterTypeByName returns a FilterType instance for the passed name, or nil if
@@ -120,8 +121,8 @@ func FilterTypeByName(name string) FilterType {
 		return StatusCodeFilterType
 	case ConnectionErrorFilterType.Name():
 		return ConnectionErrorFilterType
-	case yesInternalFilter.Name():
-		return yesInternalFilter
+	case YesInternalFilter.Name():
+		return YesInternalFilter
 	default:
 		return nil
 	}

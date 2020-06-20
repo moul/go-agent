@@ -66,7 +66,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 		// Forms are not supported on http.Response so build a placeholder http.Request
 		// to hold the data and apply standard parsing.
 		pos, _ := reader.Seek(0, io.SeekCurrent)
-		request := &http.Request{Body: reader}
+		request := &http.Request{Body: reader, Header: make(http.Header)}
 		request.Header.Set(proxy.ContentTypeHeader, proxy.ContentTypeSimpleForm)
 		reader.Seek(pos, io.SeekStart)
 
