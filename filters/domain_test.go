@@ -3,6 +3,7 @@ package filters
 import (
 	"net/http"
 	"net/url"
+	"reflect"
 	"testing"
 
 	"github.com/bearer/go-agent/events"
@@ -89,5 +90,26 @@ func TestDomainFilter_Type(t *testing.T) {
 	actual := f.Type().String()
 	if actual != expected {
 		t.Errorf("Type() = %v, want %v", actual, expected)
+	}
+}
+
+func Test_domainFilterFromDescription(t *testing.T) {
+	type args struct {
+		in0 FilterMap
+		fd  *FilterDescription
+	}
+	tests := []struct {
+		name string
+		args args
+		want Filter
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := domainFilterFromDescription(tt.args.in0, tt.args.fd); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("domainFilterFromDescription() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

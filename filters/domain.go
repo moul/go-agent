@@ -53,9 +53,8 @@ func (f *DomainFilter) SetMatcher(matcher Matcher) error {
 
 func domainFilterFromDescription(_ FilterMap, fd *FilterDescription) Filter {
 	f := &DomainFilter{}
-	err := f.SetMatcher(NewRegexpMatcher(fd.Pattern.Value))
-	if err != nil {
-		return nil
-	}
+	// If the pattern is invalid, the matcher will be nil, and SetMatcher will
+	// apply the EmptyRegexpMatcher and not fail.
+	_ = f.SetMatcher(NewRegexpMatcher(fd.Pattern.Value))
 	return f
 }

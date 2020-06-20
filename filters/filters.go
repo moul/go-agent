@@ -93,7 +93,7 @@ var (
 
 	// ConnectionErrorFilterType describes ConnectionErrorFilter.
 	ConnectionErrorFilterType FilterType = filterType{"ConnectionErrorFilter", connectionErrorFilterFromDescription, false, false}
-	yesInternalFilter FilterType = filterType{"YesFilter", nil, false, false}
+	yesInternalFilter FilterType = filterType{"YesFilter", yesFilterFromDescription, false, false}
 )
 
 // FilterTypeByName returns a FilterType instance for the passed name, or nil if

@@ -65,3 +65,51 @@ func TestIntRange_Contains(t *testing.T) {
 		})
 	}
 }
+
+func TestRangeMatcherDescription_ToInt(t *testing.T) {
+	tests := []struct {
+		name  string
+		mixed interface{}
+		want  int
+	}{
+		{`happy int`, 42, 42},
+		{`happy float`, 42.0, 42},
+		{`happy string`, `42`, 42},
+		{`sad`, 2i, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ra RangeMatcherDescription
+			if got := ra.ToInt(tt.mixed); got != tt.want {
+				t.Errorf("ToInt() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRangeMatcherDescription_String(t *testing.T) {
+	tests := []struct {
+		name        string
+		ExcludeFrom bool
+		ExcludeTo   bool
+		want        string
+	}{
+		{`closed`, false, false, `[1:2]`},
+		{`half-open right`, false, true, `[1:2[`},
+		{`half-open left`, true, false, `]1:2]`},
+		{`open`, true, true, `]1:2[`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := RangeMatcherDescription{
+				From:        1,
+				To:          2,
+				ExcludeFrom: tt.ExcludeFrom,
+				ExcludeTo:   tt.ExcludeTo,
+			}
+			if got := d.String(); got != `Range: `+tt.want+"\n" {
+				t.Errorf("String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

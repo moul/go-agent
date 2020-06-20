@@ -33,3 +33,7 @@ func (f *YesFilter) AddChildren(...Filter) FilterSet { return f }
 
 // Children is part of the FilterSet interface.
 func (*YesFilter) Children() []Filter { return nil }
+
+func yesFilterFromDescription(FilterMap, *FilterDescription) Filter {
+	return &YesFilter{}
+}
