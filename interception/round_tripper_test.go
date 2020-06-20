@@ -12,6 +12,8 @@ import (
 	"github.com/bearer/go-agent/events"
 )
 
+const defaultTestURL = `http://localhost:80`
+
 func TestRFCListener(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -61,7 +63,6 @@ func (t testRoundTripper) RoundTrip(request *http.Request) (*http.Response, erro
 }
 
 func TestRoundTripper_RoundTrip(t *testing.T) {
-	const defaultURL = `http://localhost:80`
 	tests := []struct {
 		name    string
 		liveContext bool
@@ -84,7 +85,7 @@ func TestRoundTripper_RoundTrip(t *testing.T) {
 				Dispatcher: events.NewDispatcher(),
 				Underlying: testRoundTripper{},
 			}
-			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, defaultURL, tt.body)
+			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, defaultTestURL, tt.body)
 			got, err := rt.RoundTrip(req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RoundTrip() error = %v, wantErr %v", err, tt.wantErr)

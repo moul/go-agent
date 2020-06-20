@@ -3,6 +3,7 @@ package interception
 import (
 	"context"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"testing"
 
@@ -224,7 +225,7 @@ func TestProxyProvider_onReport(t *testing.T) {
 		e       events.Event
 		wantErr bool
 	}{
-		{`happy`, &stubSender, NewReportEvent(Restricted, proxy.StageConnect, nil), false},
+		{`happy`, &stubSender, NewReportEvent(All, proxy.StageConnect, nil), false},
 		{`sad bad event`, &stubSender, &events.EventBase{}, true},
 	}
 	ctx := context.Background()
@@ -232,6 +233,10 @@ func TestProxyProvider_onReport(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := ProxyProvider{
 				Sender: tt.Sender,
+			}
+			if re, ok := tt.e.(*ReportEvent); ok {
+				res := http.Response{Body: testReader(``)}
+				re.SetResponse(&res)
 			}
 			if err := p.onReport(ctx, tt.e); (err != nil) != tt.wantErr {
 				t.Errorf("onReport() error = %v, wantErr %v", err, tt.wantErr)

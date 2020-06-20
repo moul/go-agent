@@ -21,7 +21,7 @@ func (b *MeasuredReader) Clone() (*MeasuredReader, error) {
 	buffer := &bytes.Buffer{}
 	// In this specific case, io.Copy cannot fail.
 	_, _ = io.Copy(buffer, b)
-	// io.Copy moved within the reader, return to its original position.
+	// io.Copy moved within the testReader, return to its original position.
 	_, _ = b.Seek(pos, io.SeekStart)
 	r := (*MeasuredReader)(bytes.NewReader(buffer.Bytes()))
 	return r, nil
@@ -75,7 +75,7 @@ func (p BodyParsingProvider) Listeners(e events.Event) (l []events.Listener) {
 	return
 }
 
-// Force body reading.
+// Force resBody reading.
 func (BodyParsingProvider) loadBody(body io.ReadCloser) (io.ReadCloser, error) {
 	if body == nil {
 		return body, nil

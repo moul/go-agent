@@ -180,7 +180,7 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		return nil, err
 	}
 
-	// Perform and time the underlying API call, without body capture.
+	// Perform and time the underlying API call, without resBody capture.
 	t0 = time.Now()
 	response, err := rt.Underlying.RoundTrip(request)
 	t1 = time.Now()

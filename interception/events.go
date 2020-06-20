@@ -22,7 +22,7 @@ const (
 	TopicRequest events.Topic = "request"
 
 	// TopicResponse is the third event triggered in an intercepted API.
-	// It is used to react to the response headers and possibly start of body
+	// It is used to react to the response headers and possibly start of resBody
 	// being received. Note that at this point, there is no guarantee that either
 	// the Request or Response bodies are actually entirely available, due to
 	// HTTP advanced features like request/response interleaving. It is not
