@@ -76,7 +76,7 @@ func (p BodyParsingProvider) Listeners(e events.Event) (l []events.Listener) {
 }
 
 // Force body reading.
-func (p BodyParsingProvider) loadBody(body io.ReadCloser) (io.ReadCloser, error) {
+func (BodyParsingProvider) loadBody(body io.ReadCloser) (io.ReadCloser, error) {
 	if body == nil {
 		return body, nil
 	}

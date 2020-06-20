@@ -27,7 +27,7 @@ func (p BodyParsingProvider) RequestBodyLoader(_ context.Context, e events.Event
 
 // RequestBodyParser is an events.Listener performing eager body loading on API
 // requests, to perform sanitization and bandwidth reduction.
-func (p BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) error {
+func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) error {
 	be, ok := e.(*BodiesEvent)
 	if !ok {
 		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
