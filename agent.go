@@ -15,21 +15,28 @@ import (
 	"github.com/bearer/go-agent/proxy"
 )
 
-// ExampleWellFormedInvalidKey is a well-formed key known to be invalid. It may
-// be used for integration test scenarios.
-const ExampleWellFormedInvalidKey = `app_12345678901234567890123456789012345678901234567890`
+const (
+	// ExampleWellFormedInvalidKey is a well-formed key known to be invalid. It may
+	// be used for integration test scenarios.
+	ExampleWellFormedInvalidKey = `app_12345678901234567890123456789012345678901234567890`
 
-// Version is the semantic agent version.
-const Version = `0.0.1`
+	// SecretKeyName is the environment variable used to hold the Bearer secret key,
+	// specific to each client. Fetching the secret key from the environment is a
+	// best practice in 12-factor application development.
+	SecretKeyName = `BEARER_SECRETKEY`
+
+	// Version is the semantic agent version.
+	Version = `0.0.1`
+)
 
 type transportMap map[http.RoundTripper]http.RoundTripper
 
 // Agent is the type of the Bearer entry point for your programs.
 type Agent struct {
-	m sync.Mutex
-	events.Dispatcher
+	m             sync.Mutex
+	dispatcher    events.Dispatcher
 	SecretKey     string
-	config        *config.Config
+	config        *Config
 	baseTransport http.RoundTripper
 	transports    transportMap
 	*proxy.Sender
@@ -39,18 +46,18 @@ type Agent struct {
 //
 // In most usage scenarios, you will only use a single Agent in a given application,
 // and pass a config.WithLogger(some *zerolog.Logger) config.Option.
-func NewAgent(secretKey string, opts ...config.Option) (*Agent, error) {
+func NewAgent(secretKey string, opts ...Option) (*Agent, error) {
 	if !config.IsSecretKeyWellFormed(secretKey) {
 		return nil, fmt.Errorf("secret key %s is not well-formed", secretKey)
 	}
 	a := Agent{
 		baseTransport: unwrapTransport(http.DefaultClient.Transport),
-		Dispatcher:    events.NewDispatcher(),
+		dispatcher:    events.NewDispatcher(),
 		SecretKey:     secretKey,
 		transports:    make(transportMap),
 	}
 
-	c, err := config.NewConfig(
+	c, err := NewConfig(
 		secretKey,
 		unwrapTransport(http.DefaultClient.Transport),
 		Version,
@@ -70,11 +77,11 @@ func NewAgent(secretKey string, opts ...config.Option) (*Agent, error) {
 	go a.Sender.Start()
 
 	dcrp := interception.DCRProvider{DCRs: a.config.DataCollectionRules()}
-	a.Dispatcher.AddProviders(interception.TopicConnect, events.ListenerProviderFunc(a.Provider), dcrp)
-	a.Dispatcher.AddProviders(interception.TopicRequest, dcrp)
-	a.Dispatcher.AddProviders(interception.TopicResponse, dcrp)
-	a.Dispatcher.AddProviders(interception.TopicBodies, interception.BodyParsingProvider{}, dcrp)
-	a.Dispatcher.AddProviders(interception.TopicReport,
+	a.dispatcher.AddProviders(interception.TopicConnect, events.ListenerProviderFunc(a.Provider), dcrp)
+	a.dispatcher.AddProviders(interception.TopicRequest, dcrp)
+	a.dispatcher.AddProviders(interception.TopicResponse, dcrp)
+	a.dispatcher.AddProviders(interception.TopicBodies, interception.BodyParsingProvider{}, dcrp)
+	a.dispatcher.AddProviders(interception.TopicReport,
 		interception.SanitizationProvider{
 			SensitiveKeys:    a.config.SensitiveKeys(),
 			SensitiveRegexps: a.config.SensitiveRegexps(),
@@ -96,7 +103,7 @@ func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
 		rt = http.DefaultTransport
 	}
 	return &interception.RoundTripper{
-		Dispatcher: a.Dispatcher,
+		Dispatcher: a.dispatcher,
 		Underlying: rt,
 	}
 }
@@ -165,7 +172,7 @@ func close(a *Agent) func() error {
 //   - it decorates the transport of the default client and of the clients it may receive.
 //   - it returns a closing function which will ensure orderly termination of the
 //     app, including flushing the list of records not yet transmitted to Bearer.
-func Init(secretKey string, opts ...config.Option) func() error {
+func Init(secretKey string, opts ...Option) func() error {
 	var err error
 	DefaultAgent, err = NewAgent(secretKey, opts...)
 	if err != nil || DefaultAgent.config == nil || DefaultAgent.config.IsDisabled() {

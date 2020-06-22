@@ -8,15 +8,14 @@ import (
 	"time"
 
 	"github.com/bearer/go-agent"
-	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/examples"
 	"github.com/bearer/go-agent/proxy"
 )
 
 func main() {
-	secretKey := os.Getenv(config.SecretKeyName)
-	if !config.SecretKeyRegex.MatchString(secretKey) {
-		secretKey = agent.ExampleWellFormedInvalidKey
+	secretKey := os.Getenv(agent.SecretKeyName)
+	if len(secretKey) == 0 {
+		log.Fatalf(`Bearer needs a %s environment variable`, agent.SecretKeyName)
 	}
 
 	// Step 1: initialize Bearer.
