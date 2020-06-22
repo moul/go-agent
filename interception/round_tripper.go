@@ -2,6 +2,7 @@ package interception
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,11 +33,12 @@ var schemeRegexp = regexp.MustCompile(`^[\w][-+.\w]+$`)
 func RFCListener(_ context.Context, e events.Event) error {
 	ce, ok := e.(*ConnectEvent)
 	if !ok {
-		return nil
+		return errors.New(`the RFCListener is only used with ConnectEvent`)
 	}
-	url, ok := ce.Data().(*url.URL)
+	data := ce.Data()
+	url, ok := data.(*url.URL)
 	if !ok {
-		return nil
+		return errors.New(`no URL found in ConnectEvent`)
 	}
 
 	ce.Host = url.Hostname()
@@ -178,7 +180,7 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		return nil, err
 	}
 
-	// Perform and time the underlying API call, without body capture.
+	// Perform and time the underlying API call, without resBody capture.
 	t0 = time.Now()
 	response, err := rt.Underlying.RoundTrip(request)
 	t1 = time.Now()

@@ -8,6 +8,12 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
+
+	"github.com/bearer/go-agent/events"
+	"github.com/bearer/go-agent/interception"
+	"github.com/bearer/go-agent/proxy"
 )
 
 // Perform decoration tests without going to the network.
@@ -80,10 +86,48 @@ func TestInit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Init(tt.secretKey);
+			got := Init(tt.secretKey)
 			if err := got(); (err != nil) != tt.wantErr {
 				t.Errorf("Init()() = %v", err)
 			}
 		})
+	}
+}
+
+func TestAgent_Provider(t *testing.T) {
+	tests := []struct {
+		name  string
+		topic events.Topic
+		want  int
+	}{
+		{`happy`, interception.TopicConnect, 1},
+		{`sad`, interception.TopicReport, 0},
+	}
+	var a Agent
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := (&events.EventBase{}).SetTopic(string(tt.topic))
+			if got := a.Provider(e); len(got) != tt.want {
+				t.Errorf("Provider() len = %d, want %d", len(got), tt.want)
+			}
+		})
+	}
+}
+
+func Test_close(t *testing.T) {
+	sb := &strings.Builder{}
+	z := zerolog.New(sb)
+	a := Agent{config: &Config{Logger: &z}, Sender: &proxy.Sender{}}
+	closer := close(&a)
+	if closer == nil {
+		t.Fatalf(`non-callable close result`)
+	}
+	err := closer()
+	if err != nil {
+		t.Fatalf("closer returned error: %v", err)
+	}
+	logLines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
+	if len(logLines) != 1 {
+		t.Fatalf("closer returned more than one event: %d", len(logLines))
 	}
 }

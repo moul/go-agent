@@ -33,6 +33,11 @@ func (a *Agent) SetLogger(w io.Writer) *Agent {
 	return a
 }
 
+// Trace logs a trace-level debug event with the specified message and fields.
+func (a *Agent) Trace(msg string, fields map[string]interface{}) {
+	a.Logger().Trace().Fields(fields).Msg(msg)
+}
+
 // Warn logs a warning with the specified message and fields.
 func (a *Agent) Warn(msg string, fields map[string]interface{}) {
 	a.Logger().Warn().Fields(fields).Msg(msg)

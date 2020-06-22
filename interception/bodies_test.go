@@ -23,7 +23,7 @@ func TestMeasuredReader_Clone(t *testing.T) {
 				return
 			}
 
-			// Seek on original reader to ensure clone is not affected.
+			// Seek on original testReader to ensure clone is not affected.
 			_, _ = reader.Seek(int64(reader.Len() / 2), io.SeekStart)
 
 			sl := make([]byte, len(tt.message))
@@ -39,7 +39,7 @@ func TestMeasuredReader_Clone(t *testing.T) {
 				t.Fatalf(`after seek, clone = %s, expected %s`, actual, tt.message)
 			}
 
-			// Close original reader to ensure clone is not affected.
+			// Close original testReader to ensure clone is not affected.
 			_, _ = clone.Seek(0, io.SeekStart)
 			_ = reader.Close()
 			sl = make([]byte, len(tt.message))

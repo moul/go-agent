@@ -22,7 +22,7 @@ const (
 	TopicRequest events.Topic = "request"
 
 	// TopicResponse is the third event triggered in an intercepted API.
-	// It is used to react to the response headers and possibly start of body
+	// It is used to react to the response headers and possibly start of resBody
 	// being received. Note that at this point, there is no guarantee that either
 	// the Request or Response bodies are actually entirely available, due to
 	// HTTP advanced features like request/response interleaving. It is not
@@ -80,7 +80,8 @@ type ConnectEvent struct {
 }
 
 // Request overrides the events.EventBase.Request method, building an on-the-fly
-// request from the event fields.
+// request from the event fields. It accepts building partial URLs, which may be
+// invalid.
 func (re ConnectEvent) Request() *http.Request {
 	req, _ := http.NewRequest(``, (&url.URL{
 		Scheme: re.Scheme,
@@ -99,22 +100,6 @@ func NewConnectEvent(url *url.URL) *ConnectEvent {
 	e := &ConnectEvent{}
 	e.SetData(url)
 	return e
-}
-
-// NewReportEvent builds a ReportEvent, empty but for logLevel, stage, and error.
-func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
-	be := &BodiesEvent{
-		apiEvent: apiEvent{
-			EventBase: events.EventBase{Error: err},
-			logLevel:  logLevel,
-		},
-	}
-	be.SetTopic(string(TopicRequest))
-
-	return &ReportEvent{
-		BodiesEvent: be,
-		Stage: stage,
-	}
 }
 
 // RequestEvent is the type of events dispatched at the TopicRequest stages.
@@ -158,48 +143,66 @@ func (ReportEvent) Topic() events.Topic {
 	return TopicReport
 }
 
+// NewReportEvent builds a ReportEvent, empty but for logLevel, stage, and error.
+func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
+	be := &BodiesEvent{
+		apiEvent: apiEvent{
+			EventBase: events.EventBase{Error: err},
+			logLevel:  logLevel,
+		},
+	}
+	be.SetTopic(string(TopicRequest))
+
+	return &ReportEvent{
+		BodiesEvent: be,
+		Stage: stage,
+	}
+}
+
 // DCRProvider is an events.Listener provider returning listeners based on the
 // active data collection rules.
 type DCRProvider struct {
 	DCRs []*DataCollectionRule
 }
 
+func (p *DCRProvider) onActiveTopics(_ context.Context, e events.Event) error {
+	var logLevel LogLevel
+	ae, ok := e.(APIEvent)
+	if !ok {
+		return fmt.Errorf("topic %s used with non-APIEvent type %T", e.Topic(), e)
+	}
+	logLevel = ae.LogLevel()
+	original := logLevel
+	for _, dcr := range p.DCRs {
+		// Maximum LogLevel reached: no need to check more rules.
+		if logLevel == All {
+			break
+		}
+		// Rule won't allow more logging, just skip it.
+		if dcr.LogLevel <= logLevel {
+			continue
+		}
+		// No filter: just apply the rule logLevel without running it
+		if dcr.Filter == nil {
+			logLevel = dcr.LogLevel
+			continue
+		}
+		// Rule may increase logLevel if it matches: run it.
+		if dcr.MatchesCall(e) {
+			logLevel = dcr.LogLevel
+		}
+	}
+	if logLevel != original {
+		ae.SetLogLevel(logLevel)
+	}
+	return nil
+}
+
 // Listeners implements the events.ListenerProvider interface.
 func (p DCRProvider) Listeners(e events.Event) []events.Listener {
 	switch e.Topic() {
 	case TopicConnect, TopicRequest, TopicResponse, TopicBodies:
-		return []events.Listener{func(ctx context.Context, e events.Event) error {
-			var logLevel LogLevel
-			ae, ok := e.(APIEvent)
-			if !ok {
-				return fmt.Errorf("topic %s used with non-APIEvent type %T", e.Topic(), e)
-			}
-			logLevel = ae.LogLevel()
-			original := logLevel
-			for _, dcr := range p.DCRs {
-				// Maximum LogLevel reached: no need to check more rules.
-				if logLevel == All {
-					break
-				}
-				// Rule won't allow more logging, just skip it.
-				if dcr.LogLevel <= logLevel {
-					continue
-				}
-				// No filter: just apply the rule logLevel without running it
-				if dcr.Filter == nil {
-					logLevel = dcr.LogLevel
-					continue
-				}
-				// Rule may increase logLevel if it matches: run it.
-				if dcr.MatchesCall(e) {
-					logLevel = dcr.LogLevel
-				}
-			}
-			if logLevel != original {
-				ae.SetLogLevel(logLevel)
-			}
-			return nil
-		}}
+		return []events.Listener{p.onActiveTopics}
 	default:
 		return nil
 	}
@@ -210,21 +213,22 @@ type ProxyProvider struct {
 	*proxy.Sender
 }
 
+func (p ProxyProvider) onReport(_ context.Context, e events.Event) error {
+	re, ok := e.(*ReportEvent)
+	if !ok {
+		return fmt.Errorf("topic %s used with event type %T", e.Topic(), e)
+	}
+	ll := re.LogLevel()
+	rl := ll.Prepare(re)
+	p.Send(rl)
+	return nil
+}
+
 // Listeners implements the events.ListenerProvider interface.
 func (p ProxyProvider) Listeners(e events.Event) []events.Listener {
 	if e.Topic() != TopicReport {
 		return nil
 	}
-	listener := func(ctx context.Context, e events.Event) error {
-		re, ok := e.(*ReportEvent)
-		if !ok {
-			return fmt.Errorf("topic %s used with event type %T", e.Topic(), e)
-		}
-		ll := re.LogLevel()
-		rl := ll.Prepare(re)
-		p.Send(rl)
-		return nil
-	}
 
-	return []events.Listener{listener}
+	return []events.Listener{p.onReport}
 }

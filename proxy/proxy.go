@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -17,6 +18,9 @@ import (
 const (
 	// AckBacklog is the capacity of the log write acknowledgments channel.
 	AckBacklog = 1000
+	// QuietLoopPause is the duration of the pause the Start loop will enter
+	// if no I/O is available, to avoid consuming too much power by tight looping.
+	QuietLoopPause = 10 * time.Millisecond
 	// FanInBacklog is the capacity of the fan-in log write channel
 	FanInBacklog = 100
 
@@ -116,8 +120,8 @@ type Sender struct {
 // Stop notifies the background sending loop that the application is shutting
 // down. Any ReportLog elements send after that call will be lost and unreported.
 func (s *Sender) Stop() {
-	s.Done <- true
-	s.FanIn = nil
+	s.Finish <- true
+	close(s.FanIn)
 }
 
 // NewSender builds a ready-to-user
@@ -146,6 +150,7 @@ func NewSender(
 func (s *Sender) Send(log ReportLog) {
 	if s.FanIn == nil {
 		s.Warn().Msg(`sending attempted after Stop: ignored`)
+		return
 	}
 	go func() {
 		s.FanIn <- log
@@ -169,7 +174,11 @@ Normal:
 			break Normal
 
 		// ReportLog to write.
-		case rl := <-s.FanIn:
+		case rl, ok := <-s.FanIn:
+			if !ok {
+				s.Logger.Trace().Msgf("Sender switching to Finishing mode on FanIn close, at counter %d.", s.Counter)
+				break Normal
+			}
 			s.Logger.Trace().Msg("Sender received log to send.")
 			if s.InFlight >= s.InFlightLimit {
 				s.Lost++
@@ -198,11 +207,20 @@ Normal:
 				go s.WriteLog(NewReportLossReport(s.Lost))
 				s.Lost = 0
 			}
+		default:
+			// Go tight loops may be sub-microsecond, so if nothing is going on,
+			// avoid a tight loop to save energy.
+			if len(s.FanIn) == 0 && len(s.Acks) == 0 && len(s.Finish) == 0 {
+				time.Sleep(QuietLoopPause)
+			}
 		}
 	}
 
 	// Finishing.
 	for {
+		if len(s.FanIn) == 0 {
+			return
+		}
 		select {
 		// ReportLog to write. Same as normal operation.
 		case rl := <-s.FanIn:
@@ -231,12 +249,8 @@ Normal:
 				go s.WriteLog(NewReportLossReport(s.Lost))
 				s.Lost = 0
 			}
-			if len(s.FanIn) == 0 {
-				return
-			}
 		}
 	}
-
 }
 
 // WriteLog attempts to transmit a ReportLog to the Bearer platform, and acknowleges
@@ -253,12 +267,8 @@ func (s *Sender) WriteLog(rl ReportLog) {
 	lr.SecretKey = s.SecretKey
 	lr.Logs = []ReportLog{rl}
 
-	body, err := json.Marshal(lr)
-	if err != nil {
-		s := err.Error()
-		msg := struct{ Error string }{Error: s}
-		body, _ = json.Marshal(msg)
-	}
+	// Cannot fail: the LogReport is made of basic JSON types.
+	body, _ := json.Marshal(lr)
 
 	req, err := http.NewRequest(http.MethodPost, s.LogEndpoint, bytes.NewReader(body))
 	if err != nil {
@@ -274,6 +284,9 @@ func (s *Sender) WriteLog(rl ReportLog) {
 	} else {
 		if res.StatusCode < http.StatusContinue || res.StatusCode >= http.StatusBadRequest {
 			logsBody, err := ioutil.ReadAll(res.Body)
+			if len(logsBody) == 0 {
+				logsBody = []byte(`[]`)
+			}
 			s.Warn().
 				RawJSON("report", body).
 				Err(err).
@@ -281,10 +294,12 @@ func (s *Sender) WriteLog(rl ReportLog) {
 				Msgf(`got response %d %s transmitting log %d to the report server.`, res.StatusCode, res.Status, s.Counter)
 			return
 		}
+		resBody, _ := ioutil.ReadAll(res.Body)
 		s.Trace().
 			Uint("reportId", s.Counter).
 			Str("status", res.Status).
 			RawJSON("report", body).
+			Bytes("response", resBody).
 			Send()
 	}
 }
@@ -295,7 +310,7 @@ func NewReportLossReport(n uint) ReportLog {
 		Type:             Loss,
 		Stage:            StageUndefined,
 		ErrorCode:        strconv.Itoa(int(n)),
-		ErrorFullMessage: fmt.Sprintf("%d report logs were logs", n),
+		ErrorFullMessage: fmt.Sprintf("%d report logs were lost", n),
 	}
 }
 

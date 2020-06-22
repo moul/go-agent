@@ -40,10 +40,13 @@ func (f *HTTPMethodFilter) MatchesCall(e events.Event) bool {
 func (f *HTTPMethodFilter) SetMatcher(matcher Matcher) error {
 	defaultMatcher := NewStringMatcher(http.MethodGet, true)
 
+	if matcher == nil {
+		matcher = defaultMatcher
+	}
 	m, ok := matcher.(StringMatcher)
 	if !ok {
 		f.StringMatcher = defaultMatcher
-		return fmt.Errorf("regexp matcher expected, got a %T", matcher)
+		return fmt.Errorf("string matcher expected, got a %T", matcher)
 	}
 
 	// StringMatcher guarantees the method is a valid UTF-8 string.

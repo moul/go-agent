@@ -74,7 +74,7 @@ func TestYesFilter_AddChildren(t *testing.T) {
 }
 
 func TestYesFilter_Type(t *testing.T) {
-	expected := yesInternalFilter.String()
+	expected := YesInternalFilter.String()
 	var f YesFilter
 	actual := f.Type().String()
 	if actual != expected {

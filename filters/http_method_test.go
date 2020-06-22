@@ -19,7 +19,7 @@ func TestHTTPMethodFilter_MatchesCall(t *testing.T) {
 		{"happy", http.MethodTrace, false, &http.Request{Method: http.MethodTrace}, true},
 		{"happy no case", http.MethodPut, true, &http.Request{Method: strings.ToLower(http.MethodPut)}, true},
 		{"sad for name", http.MethodOptions, false, &http.Request{Method: http.MethodTrace}, false},
-		{"sad for case", http.MethodHead, false, &http.Request{Method: strings.ToLower(http.MethodHead)},false},
+		{"sad for case", http.MethodHead, false, &http.Request{Method: strings.ToLower(http.MethodHead)}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -72,5 +72,45 @@ func TestHTTPMethodFilter_Type(t *testing.T) {
 	actual := f.Type().String()
 	if actual != expected {
 		t.Errorf("Type() = %v, want %v", actual, expected)
+	}
+}
+
+func TestHTTPMethodFilter_SetMatcher1(t *testing.T) {
+	tests := []struct {
+		name    string
+		matcher Matcher
+		wantErr bool
+	}{
+		{`happy`, &stringMatcher{}, false},
+		{`happy nil`, nil, false},
+		{`sad bad matcher`, &regexpMatcher{}, true},
+		{`sad bad method`, &stringMatcher{s: "po,st"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &HTTPMethodFilter{}
+			if err := f.SetMatcher(tt.matcher); (err != nil) != tt.wantErr {
+				t.Errorf("SetMatcher() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_methodFilterFromDescription(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantNil bool
+	}{
+		{`happy`, http.MethodGet, false},
+		{`sad bad method`, `po,st`, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fd := FilterDescription{Value: tt.value}
+			if got := methodFilterFromDescription(nil, &fd); got == nil != tt.wantNil {
+				t.Errorf("methodFilterFromDescription() = %v, want %t", got, tt.wantNil)
+			}
+		})
 	}
 }

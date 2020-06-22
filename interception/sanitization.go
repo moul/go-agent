@@ -175,11 +175,11 @@ func (p SanitizationProvider) SanitizeResponseHeaders(_ context.Context, e event
 	return nil
 }
 
-// SanitizeRequestBody sanitized the Request body in a ReportEvent.
+// SanitizeRequestBody sanitized the Request resBody in a ReportEvent.
 func (p SanitizationProvider) SanitizeRequestBody(_ context.Context, e events.Event) error {
 	re, ok := e.(*ReportEvent)
 	if !ok {
-		return fmt.Errorf(`expected ReportEvent, got %T`, e)
+		return fmt.Errorf(`topic ReportEvent, got %T`, e)
 	}
 	w := NewWalker(re.RequestBody)
 	var accu interface{}
@@ -191,11 +191,11 @@ func (p SanitizationProvider) SanitizeRequestBody(_ context.Context, e events.Ev
 	return nil
 }
 
-// SanitizeResponseBody sanitizes the Response body in a ReportEvent.
+// SanitizeResponseBody sanitizes the Response resBody in a ReportEvent.
 func (p SanitizationProvider) SanitizeResponseBody(_ context.Context, e events.Event) error {
 	re, ok := e.(*ReportEvent)
 	if !ok {
-		return fmt.Errorf(`expected ReportEvent, got %T`, e)
+		return fmt.Errorf(`topic ReportEvent, got %T`, e)
 	}
 	w := NewWalker(re.ResponseBody)
 	var accu interface{}

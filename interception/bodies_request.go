@@ -11,12 +11,12 @@ import (
 	"github.com/bearer/go-agent/proxy"
 )
 
-// RequestBodyLoader is an events.Listener performing eager body loading on API
+// RequestBodyLoader is an events.Listener performing eager resBody loading on API
 // requests, to ensure data collection by the agent.
 func (p BodyParsingProvider) RequestBodyLoader(_ context.Context, e events.Event) error {
 	be, ok := e.(*BodiesEvent)
 	if !ok {
-		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
+		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
 	}
 	request := be.Request()
 	request.Body, be.Error = p.loadBody(request.Body)
@@ -25,12 +25,12 @@ func (p BodyParsingProvider) RequestBodyLoader(_ context.Context, e events.Event
 	return nil
 }
 
-// RequestBodyParser is an events.Listener performing eager body loading on API
+// RequestBodyParser is an events.Listener performing eager resBody loading on API
 // requests, to perform sanitization and bandwidth reduction.
-func (p BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) error {
+func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) error {
 	be, ok := e.(*BodiesEvent)
 	if !ok {
-		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
+		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
 	}
 	request := e.Request()
 	body := request.Body
@@ -39,7 +39,7 @@ func (p BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event
 	}
 	reader, ok := body.(*MeasuredReader)
 	if !ok {
-		return fmt.Errorf(`expected Body to have a Len(), got %T`, body)
+		return fmt.Errorf(`topic Body to have a Len(), got %T`, body)
 	}
 	if reader.Len() >= MaximumBodySize {
 		be.RequestBody = BodyTooLong
@@ -53,10 +53,13 @@ func (p BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event
 	switch {
 	case JSONContentType.MatchString(ct):
 		d := json.NewDecoder(reader)
+		if be.RequestBody == nil {
+			be.RequestBody = new(interface{})
+		}
 		err := d.Decode(be.RequestBody)
 		if err != nil {
 			be.RequestBody = BodyUndecodable
-			return fmt.Errorf("decoding JSON request body: %w", err)
+			return fmt.Errorf("decoding JSON request resBody: %w", err)
 		}
 		_, _ = reader.Seek(0, io.SeekStart)
 		be.RequestSha = ToSha(reader)
@@ -65,7 +68,7 @@ func (p BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event
 		err := request.ParseForm()
 		if err != nil {
 			be.RequestBody = BodyUndecodable
-			return fmt.Errorf("decoding HTML form request body: %w", err)
+			return fmt.Errorf("decoding HTML form request resBody: %w", err)
 		}
 		be.RequestBody = request.Form
 		be.RequestSha = ToSha(request.Form)

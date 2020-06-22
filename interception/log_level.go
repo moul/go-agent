@@ -27,7 +27,7 @@ const (
 	// LogLevelKey is the key in contexts where the current LogLevel may be found.
 	LogLevelKey ContextKey = `BearerLogLevel`
 
-	// MaximumBodySize is the largest body size to store whole.
+	// MaximumBodySize is the largest resBody size to store whole.
 	MaximumBodySize = 1 << 20
 )
 

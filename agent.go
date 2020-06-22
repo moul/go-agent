@@ -162,7 +162,7 @@ func uninitializedClose(err error) func() error {
 // XXX A placeholder for future logic, as in #BG-14 prevent early termination.
 func close(a *Agent) func() error {
 	return func() error {
-		a.Trace().Msgf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter)
+		a.Trace(fmt.Sprintf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter), nil)
 		return nil
 	}
 }
@@ -187,7 +187,7 @@ func Init(secretKey string, opts ...Option) func() error {
 // Provider provides the default agent listeners:
 //   - TopicConnect: RFCListener, validating URL under RFC grammars.
 //   - TopicRequest, TopicResponse, TopicBodies: no.
-func (a *Agent) Provider(e events.Event) []events.Listener {
+func (*Agent) Provider(e events.Event) []events.Listener {
 	var l []events.Listener
 	switch topic := e.Topic(); topic {
 	case interception.TopicConnect:

@@ -12,12 +12,12 @@ import (
 	"github.com/bearer/go-agent/proxy"
 )
 
-// ResponseBodyLoader is an events.Listener performing eager body loading on API
+// ResponseBodyLoader is an events.Listener performing eager resBody loading on API
 // responses, to ensure data collection by the agent.
 func (p BodyParsingProvider) ResponseBodyLoader(_ context.Context, e events.Event) error {
 	be, ok := e.(*BodiesEvent)
 	if !ok {
-		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
+		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
 	}
 	response := be.Response()
 	response.Body, be.Error = p.loadBody(response.Body)
@@ -26,12 +26,12 @@ func (p BodyParsingProvider) ResponseBodyLoader(_ context.Context, e events.Even
 	return nil
 }
 
-// ResponseBodyParser is an events.Listener performing eager body loading on API
+// ResponseBodyParser is an events.Listener performing eager resBody loading on API
 // responses, to perform sanitization and bandwidth reduction.
 func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Event) error {
 	be, ok := e.(*BodiesEvent)
 	if !ok {
-		return fmt.Errorf(`expected BodiesEvent, got %T`, e)
+		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
 	}
 	response := e.Response()
 	var body io.Reader = response.Body
@@ -40,7 +40,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 	}
 	reader, ok := body.(*MeasuredReader)
 	if !ok {
-		return fmt.Errorf(`expected Body to have a Len(), got %T`, body)
+		return fmt.Errorf(`topic Body to have a Len(), got %T`, body)
 	}
 	if reader.Len() >= MaximumBodySize {
 		be.ResponseBody = BodyTooLong
@@ -57,7 +57,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 		err := d.Decode(&be.ResponseBody)
 		if err != nil {
 			be.ResponseBody = BodyUndecodable
-			return fmt.Errorf("decoding JSON response body: %w", err)
+			return fmt.Errorf("decoding JSON response resBody: %w", err)
 		}
 		_, _ = reader.Seek(0, io.SeekStart)
 		be.ResponseSha = ToSha(reader)
@@ -66,7 +66,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 		// Forms are not supported on http.Response so build a placeholder http.Request
 		// to hold the data and apply standard parsing.
 		pos, _ := reader.Seek(0, io.SeekCurrent)
-		request := &http.Request{Body: reader}
+		request := &http.Request{Body: reader, Header: make(http.Header)}
 		request.Header.Set(proxy.ContentTypeHeader, proxy.ContentTypeSimpleForm)
 		reader.Seek(pos, io.SeekStart)
 
