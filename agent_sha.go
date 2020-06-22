@@ -2,4 +2,4 @@
 
 package agent
 
-var BearerSHA="a462ee611d5e4fb50bc7bf1f20feb49d0542fd9b"
+var BearerSHA="4362f0181475aad9423fc4b2f34e7d48fc89518a"
