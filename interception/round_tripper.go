@@ -94,18 +94,19 @@ func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) (LogLeve
 
 func (rt *RoundTripper) stageRequest(logLevel LogLevel, request *http.Request) (LogLevel, error) {
 	ctx := request.Context()
-	e := &RequestEvent{}
-	e.SetLogLevel(logLevel)
-	e.SetRequest(request)
-	_, err := rt.Dispatch(ctx, e)
+	be := &BodiesEvent{}
+	be.SetTopic(string(TopicRequest))
+	be.SetLogLevel(logLevel)
+	be.SetRequest(request)
+	_, err := rt.Dispatch(ctx, be)
 	if err != nil {
-		return e.LogLevel(), err
+		return be.LogLevel(), err
 	}
 	if err = ctx.Err(); err != nil {
-		return e.LogLevel(), err
+		return be.LogLevel(), err
 	}
 
-	return e.LogLevel(), nil
+	return be.LogLevel(), nil
 }
 
 func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) (LogLevel, error) {
@@ -125,11 +126,12 @@ func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, re
 
 func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) *ReportEvent {
 	rev := NewReportEvent(logLevel, proxy.StageBodies, err)
-	rev.BodiesEvent = BodiesEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
+	rev.BodiesEvent = &BodiesEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
+	rev.BodiesEvent.SetTopic(string(TopicBodies))
 
 	rev.SetLogLevel(logLevel)
 	rev.SetRequest(request).SetResponse(response)
-	_, rev.Error = rt.Dispatch(ctx, &rev.BodiesEvent)
+	_, rev.Error = rt.Dispatch(ctx, rev.BodiesEvent)
 	if rev.Error != nil {
 		return rev
 	}

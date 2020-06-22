@@ -2,7 +2,6 @@ package interception
 
 import (
 	"fmt"
-	"os"
 	"testing"
 )
 
@@ -113,7 +112,7 @@ func TestDataCollectionRuleDescription_String(t *testing.T) {
 				Signature:  tt.fields.Signature,
 			}
 			if testing.Verbose() {
-				fmt.Fprintf(os.Stderr, "%s%s%v\n%v", d.String(), tt.want, []byte(d.String()), []byte(tt.want))
+				t.Log(fmt.Sprintf("%s%s%v\n%v", d.String(), tt.want, []byte(d.String()), []byte(tt.want)))
 			}
 			if got := d.String(); got != tt.want {
 				t.Errorf("String() = %v, want %v", got, tt.want)

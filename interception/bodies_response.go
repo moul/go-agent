@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/bearer/go-agent/events"
@@ -62,6 +63,20 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 		be.ResponseSha = ToSha(reader)
 		_, _ = reader.Seek(0, io.SeekStart)
 	case FormContentType.MatchString(ct):
+		// Forms are not supported on http.Response so build a placeholder http.Request
+		// to hold the data and apply standard parsing.
+		pos, _ := reader.Seek(0, io.SeekCurrent)
+		request := &http.Request{Body: reader}
+		request.Header.Set(proxy.ContentTypeHeader, proxy.ContentTypeSimpleForm)
+		reader.Seek(pos, io.SeekStart)
+
+		err := request.ParseForm()
+		if err != nil {
+			be.ResponseBody = BodyUndecodable
+			return fmt.Errorf("decoding HTML form response body: %w", err)
+		}
+		be.ResponseBody = request.Form
+		be.ResponseSha = ToSha(request.Form)
 		return nil
 	}
 

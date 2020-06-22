@@ -1,9 +1,10 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Run bespoke example" type="GoApplicationRunConfiguration" factoryName="Go Application">
+  <configuration default="false" name="Run form example" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="bearer-go-agent" />
     <working_directory value="$PROJECT_DIR$/" />
     <go_parameters value="-i" />
     <envs>
+      <env name="BEARER_SECRETKEY" value="app_78bf072006767d05a023efee38160d368d91ff186e46b38508" />
       <env name="BEARER_TRACE" value="y" />
     </envs>
     <EXTENSION ID="net.ashald.envfile">
@@ -18,7 +19,7 @@
     </EXTENSION>
     <kind value="PACKAGE" />
     <filePath value="$PROJECT_DIR$/" />
-    <package value="github.com/bearer/go-agent/examples/bespoke" />
+    <package value="github.com/bearer/go-agent/examples/form" />
     <directory value="$PROJECT_DIR$/" />
     <method v="2" />
   </configuration>

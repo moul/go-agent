@@ -47,7 +47,7 @@ func TestEventBase_Data(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			eb := &events.EventBase{}
 			eb.SetData(tt.data)
-			eb.WithTopic(tt.name)
+			eb.SetTopic(tt.name)
 			if got := eb.Data(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Data() = %v, want %v", got, tt.want)
 			}
