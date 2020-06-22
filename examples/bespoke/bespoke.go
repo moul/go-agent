@@ -30,7 +30,10 @@ func main() {
 
 	// Step 3: use your client as usual.
 	client := http.Client{Transport: transport}
-	res, err := client.Do(&http.Request{URL: proxy.MustParseURL(examples.APIURL)})
+	res, err := client.Do(&http.Request{
+		Method: http.MethodGet,
+		URL:    proxy.MustParseURL(examples.APIURL),
+	})
 	if err != nil {
 		log.Fatalf("calling %s: %v", examples.APIURL, err)
 	}

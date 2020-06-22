@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -78,6 +79,13 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 		be.ResponseBody = request.Form
 		be.ResponseSha = ToSha(request.Form)
 		return nil
+	default:
+		body, err := ioutil.ReadAll(reader)
+		if err != nil {
+			be.ResponseBody = BodyUndecodable
+			return nil
+		}
+		be.ResponseBody = body
 	}
 
 	return nil

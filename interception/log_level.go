@@ -16,7 +16,7 @@ type ContextKey string
 
 const (
 	// BodyTooLong is the replacement string for bodies beyond MaximumBodySize.
-	BodyTooLong  = `(omitted due to size)`
+	BodyTooLong = `(omitted due to size)`
 
 	// BodyIsBinary is the replacement string for unparseable bodies.
 	BodyIsBinary = `(not showing binary data)`
@@ -33,6 +33,9 @@ const (
 
 // ParsableContentType is a regexp defining the types to attempt to parse.
 var ParsableContentType = regexp.MustCompile(`(?i)(json|text|xml|x-www-form-urlencoded)`)
+
+// StringContentType is a regexp defininig the types to return as plain strings.
+var StringContentType = regexp.MustCompile(`(?i)(text|xml)`)
 
 // JSONContentType is a regexp defining the content types to handle as JSON.
 var JSONContentType = regexp.MustCompile(`(?i)json`)
@@ -141,12 +144,23 @@ func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
 		rl.Type = proxy.Error
 		rl.RequestBody = ``
 	} else {
-		body, err := json.Marshal(re.RequestBody)
-		if err != nil {
-			rl.Type = proxy.Error
-			rl.RequestBody = BodyUndecodable
+		ct := rl.RequestHeaders.Get(proxy.ContentTypeHeader)
+		if ct == proxy.ContentTypeSimpleForm {
+			s, ok := re.RequestBody.(string)
+			if !ok {
+				rl.Type = proxy.Error
+				rl.RequestBody = BodyUndecodable
+			} else {
+				rl.RequestBody = s
+			}
 		} else {
-			rl.RequestBody = string(body)
+			body, err := json.Marshal(re.RequestBody)
+			if err != nil {
+				rl.Type = proxy.Error
+				rl.RequestBody = BodyUndecodable
+			} else {
+				rl.RequestBody = string(body)
+			}
 		}
 	}
 
@@ -157,6 +171,13 @@ func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
 		rl.ResponseBody = ``
 	} else {
 		defer response.Body.Close()
+		ct := rl.ResponseHeaders.Get(proxy.ContentTypeHeader)
+		if StringContentType.MatchString(ct) {
+			if sl, ok := re.ResponseBody.([]byte); ok {
+				rl.ResponseBody = string(sl)
+				return
+			}
+		}
 		body, err := json.Marshal(re.ResponseBody)
 		if err != nil {
 			rl.Type = proxy.Error
