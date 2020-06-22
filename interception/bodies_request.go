@@ -70,7 +70,7 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 			be.RequestBody = BodyUndecodable
 			return fmt.Errorf("decoding HTML form request resBody: %w", err)
 		}
-		be.RequestBody = request.Form
+		be.RequestBody = request.Form.Encode()
 		be.RequestSha = ToSha(request.Form)
 		return nil
 	}
