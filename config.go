@@ -48,7 +48,6 @@ type Config struct {
 // optionDefaults is an always-on Option loading built-in values.
 var optionDefaults Option = func(c *Config) error {
 	c.Logger = config.DefaultLogger()
-	c.runtimeEnvironmentType = config.DefaultRuntimeEnvironmentType
 	c.fetchEndpoint = config.DefaultConfigEndpoint
 	c.ReportEndpoint = config.DefaultReportEndpoint
 	c.ReportOutstanding = config.DefaultReportOutstanding

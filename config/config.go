@@ -15,9 +15,6 @@ const (
 	// when the application uses the default logger instead of injecting its own.
 	TraceLoggingName = `BEARER_TRACE`
 
-	// DefaultRuntimeEnvironmentType is the default environment type.
-	DefaultRuntimeEnvironmentType = "development" // "default"
-
 	// DefaultConfigEndpoint is the default configuration endpoint for Bearer.
 	DefaultConfigEndpoint = "https://config.bearer.sh/config"
 

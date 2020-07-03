@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/bearer/go-agent"
-	"github.com/bearer/go-agent/config"
 )
 
 // TODO improve tests to avoid calling the config server.
@@ -19,9 +18,6 @@ func TestConfig_Default(t *testing.T) {
 	}
 	if !actual.IsDisabled() {
 		t.Errorf("incorrect default for isDisabled")
-	}
-	if actual.RuntimeEnvironmentType() != config.DefaultRuntimeEnvironmentType {
-		t.Errorf("incorrect default for runtimeEnvironmentType")
 	}
 	if actual.SecretKey() != agent.ExampleWellFormedInvalidKey {
 		t.Errorf("incorrect default for secretKey")

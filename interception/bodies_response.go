@@ -69,7 +69,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 		pos, _ := reader.Seek(0, io.SeekCurrent)
 		request := &http.Request{Body: reader, Header: make(http.Header)}
 		request.Header.Set(proxy.ContentTypeHeader, proxy.ContentTypeSimpleForm)
-		reader.Seek(pos, io.SeekStart)
+		_, _ = reader.Seek(pos, io.SeekStart)
 
 		err := request.ParseForm()
 		if err != nil {

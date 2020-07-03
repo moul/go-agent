@@ -17,7 +17,10 @@ func MakeConfigReport(version string, environmentType string, secretKey string) 
 	if err != nil {
 		hostname = HostUnknown
 	}
-	appEnvironment := base64.URLEncoding.EncodeToString([]byte(strings.ToLower(environmentType)))
+	appEnvironment := ""
+	if environmentType != "" {
+		appEnvironment = base64.URLEncoding.EncodeToString([]byte(strings.ToLower(environmentType)))
+	}
 	return LogReport{
 		SecretKey: secretKey,
 		Runtime: RuntimeReport{
@@ -56,14 +59,14 @@ type AgentReport struct {
 // ApplicationReport is the part of the Report describing the application
 // execution environment, like "development", "staging", or "production".
 type ApplicationReport struct {
-	Environment string `json:"environment"`
+	Environment string `json:"environment,omitempty"`
 }
 
 // LogReport is the information sent to the Bearer configuration and logs servers,
 // describing the current agent operating environment.
 type LogReport struct {
 	SecretKey      string            `json:"secretKey"`
-	AppEnvironment string            `json:"appEnvironment"`
+	AppEnvironment string            `json:"appEnvironment,omitempty"`
 	Application    ApplicationReport `json:"application"`
 	Runtime        RuntimeReport     `json:"runtime"`
 	Agent          AgentReport       `json:"agent"`

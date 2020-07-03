@@ -1,0 +1,40 @@
+kind: pipeline
+name: Go Agent - Build and Test
+
+environment:
+  GOLANGCI_VERSION: v1.27.0
+  XDG_CACHE_HOME: /tmp/cache
+
+workspace:
+  base: /go
+  path: src/github.com/bearer/go-agent
+
+steps:
+  - name: install dependencies
+    image: golang:1.14
+    commands:
+      - go version
+      - go mod download
+      - go mod tidy
+      - go get -u golang.org/x/lint/golint
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s ${GOLANGCI_VERSION}
+      - ./bin/golangci-lint --version
+      - ./bin/golangci-lint run -h | grep concurrency
+      - go get -u github.com/axw/gocov/... github.com/AlekSi/gocov-xml
+  - name: lint
+    image: golang:1.14
+    depends_on: [ install dependencies ]
+    commands:
+      - echo > golint.xml
+      - golint -min_confidence 0.3 ./...
+      - ./bin/golangci-lint run ./...
+  - name: test
+    image: golang:1.14
+    depends_on: [ install dependencies ]
+    commands:
+      - make test
+
+trigger:
+  event:
+    - pull_request
+    - push
