@@ -37,11 +37,16 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 	response := e.Response()
 	var body io.Reader = response.Body
 	if body == nil {
+		be.ResponseBody = ``
 		return nil
 	}
 	reader, ok := body.(*MeasuredReader)
 	if !ok {
 		return fmt.Errorf(`topic Body to have a Len(), got %T`, body)
+	}
+	if reader.Len() == 0 {
+		be.ResponseBody = ``
+		return nil
 	}
 	if reader.Len() >= MaximumBodySize {
 		be.ResponseBody = BodyTooLong

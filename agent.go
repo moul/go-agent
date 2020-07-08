@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/bearer/go-agent/config"
 	"github.com/bearer/go-agent/events"
@@ -57,11 +59,7 @@ func NewAgent(secretKey string, opts ...Option) (*Agent, error) {
 		transports:    make(transportMap),
 	}
 
-	c, err := NewConfig(
-		secretKey,
-		unwrapTransport(http.DefaultClient.Transport),
-		Version,
-		opts...)
+	c, err := NewConfig(secretKey, a.baseTransport, Version, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("configuring new agent: %w", err)
 	}
@@ -206,6 +204,23 @@ func unwrapTransport(rt http.RoundTripper) http.RoundTripper {
 			continue
 		}
 		break
+	}
+	// If the underlying transport, some other package may modify it, so we cannot
+	// rely on it being correct afterwards, so provide a default Transport matching
+	// the standard values of the http.DefaultTransport.
+	if rt == nil {
+		rt = &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
 	}
 	return rt
 }

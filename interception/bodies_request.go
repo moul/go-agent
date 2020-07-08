@@ -35,11 +35,16 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 	request := e.Request()
 	body := request.Body
 	if body == nil {
+		be.RequestBody = ``
 		return nil
 	}
 	reader, ok := body.(*MeasuredReader)
 	if !ok {
 		return fmt.Errorf(`topic Body to have a Len(), got %T`, body)
+	}
+	if reader.Len() == 0 {
+		be.RequestBody = ``
+		return nil
 	}
 	if reader.Len() >= MaximumBodySize {
 		be.RequestBody = BodyTooLong
