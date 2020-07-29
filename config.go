@@ -57,12 +57,6 @@ var optionDefaults Option = func(c *Config) error {
 	return nil
 }
 
-// OptionDisabled is a special non-configurable Option disabling the agent.
-var OptionDisabled Option = func(c *Config) error {
-	c.isDisabled = true
-	return nil
-}
-
 // optionEnvironment is an always-on Option loading values from the environment.
 // In this version, it overrides the secret key passed manually if it is not
 // well-formed, as a fallback security.
@@ -76,6 +70,14 @@ var optionEnvironment Option = func(c *Config) error {
 		}
 	}
 	return nil
+}
+
+// WithDisabled is a functional Option to disable the agent
+func WithDisabled(value bool) Option {
+	return func(c *Config) error {
+		c.isDisabled = value
+		return nil
+	}
 }
 
 // WithDataCollectionRules is a functional Option configuring the data collection rules.
@@ -131,7 +133,7 @@ func WithRemote(transport http.RoundTripper, version string) Option {
 	}
 }
 
-// WithRuntimeEnvironmentType is a functional Option configuring the runtime environment type.
+// WithEnvironment is a functional Option configuring the runtime environment type.
 //
 // The environment type is a free-form tag for clients, allowing them to report
 // which type of environment they are running in, like "development", "staging"
@@ -139,7 +141,7 @@ func WithRemote(transport http.RoundTripper, version string) Option {
 //
 // It allows clients to avoid the issues associated with having development and
 // production metrics grouped together although they have different use profiles.
-func WithRuntimeEnvironmentType(rtet string) Option {
+func WithEnvironment(rtet string) Option {
 	return func(c *Config) error {
 		c.runtimeEnvironmentType = rtet
 		return nil
@@ -241,8 +243,8 @@ func (c *Config) IsDisabled() bool {
 	return c == nil || c.isDisabled || !config.IsSecretKeyWellFormed(c.secretKey)
 }
 
-// RuntimeEnvironmentType is a getter for runtimeEnvironmentType.
-func (c *Config) RuntimeEnvironmentType() string {
+// Environment is a getter for runtimeEnvironmentType.
+func (c *Config) Environment() string {
 	return c.runtimeEnvironmentType
 }
 

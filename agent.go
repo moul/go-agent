@@ -70,7 +70,7 @@ func NewAgent(secretKey string, opts ...Option) (*Agent, error) {
 	}
 
 	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
-		c.SecretKey(), c.RuntimeEnvironmentType(),
+		c.SecretKey(), c.Environment(),
 		a.DefaultTransport(), a.Logger())
 	go a.Sender.Start()
 

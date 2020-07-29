@@ -50,7 +50,7 @@ func TestConfig_WithoutKey(t *testing.T) {
 }
 
 func TestConfig_Disabled(t *testing.T) {
-	actual, err := agent.NewConfig(agent.ExampleWellFormedInvalidKey, nil, agent.Version, agent.OptionDisabled)
+	actual, err := agent.NewConfig(agent.ExampleWellFormedInvalidKey, nil, agent.Version, agent.WithDisabled(true))
 	if err != nil {
 		t.Errorf("failed building disabled config")
 	}
@@ -59,15 +59,15 @@ func TestConfig_Disabled(t *testing.T) {
 	}
 }
 
-func TestConfig_WithRuntimeEnvironmentType(t *testing.T) {
+func TestConfig_WithEnvironment(t *testing.T) {
 	const expected = "production"
 	c, err := agent.NewConfig(agent.ExampleWellFormedInvalidKey, nil, agent.Version,
-		agent.WithRuntimeEnvironmentType(expected),
+		agent.WithEnvironment(expected),
 	)
 	if err != nil {
 		t.Errorf("failed building config with environment type")
 	}
-	actual := c.RuntimeEnvironmentType()
+	actual := c.Environment()
 	if actual != expected {
 		t.Errorf("incorrect environment type: expected %s, got %s", expected, actual)
 	}
