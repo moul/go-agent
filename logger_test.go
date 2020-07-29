@@ -31,7 +31,7 @@ func TestAgent_Error(t *testing.T) {
 			a := &agent.Agent{}
 			w := &strings.Builder{}
 			a.SetLogger(w)
-			a.Error(tt.args.msg, tt.args.fields)
+			a.LogError(tt.args.msg, tt.args.fields)
 			raw := []byte(w.String())
 			actual := map[string]string{}
 			err := json.Unmarshal(raw, &actual)
@@ -61,7 +61,7 @@ func TestAgent_Warn(t *testing.T) {
 			a := &agent.Agent{}
 			w := &strings.Builder{}
 			a.SetLogger(w)
-			a.Warn(tt.args.msg, tt.args.fields)
+			a.LogWarn(tt.args.msg, tt.args.fields)
 			raw := []byte(w.String())
 			actual := map[string]string{}
 			err := json.Unmarshal(raw, &actual)

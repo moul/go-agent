@@ -7,26 +7,28 @@ import (
 	"os"
 	"time"
 
-	"github.com/bearer/go-agent"
 	"github.com/bearer/go-agent/examples"
 	"github.com/bearer/go-agent/proxy"
+
+	bearer "github.com/bearer/go-agent"
 )
 
 func main() {
-	secretKey := os.Getenv(agent.SecretKeyName)
+	secretKey := os.Getenv(bearer.SecretKeyName)
 	if len(secretKey) == 0 {
-		log.Fatalf(`Bearer needs a %s environment variable`, agent.SecretKeyName)
+		log.Fatalf(`Bearer needs a %s environment variable`, bearer.SecretKeyName)
 	}
 
 	// Step 1: initialize Bearer.
-	defer agent.Init(secretKey)()
+	agent := bearer.New(secretKey)
+	defer agent.Close()
 
 	// Step 2: prepare your custom transport, decorating it with the Bearer agent.
 	var baseTransport = http.DefaultTransport.(*http.Transport)
 
 	// Say your enterprise proxy needs a specific CONNECT header.
 	baseTransport.ProxyConnectHeader = http.Header{"ACME_ID": []string{"some secret"}}
-	transport := agent.DefaultAgent.Decorate(baseTransport)
+	transport := agent.Decorate(baseTransport)
 
 	// Step 3: use your client as usual.
 	client := http.Client{Transport: transport}

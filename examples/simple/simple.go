@@ -7,8 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/bearer/go-agent"
 	"github.com/bearer/go-agent/examples"
+
+	bearer "github.com/bearer/go-agent"
 )
 
 func main() {
@@ -24,11 +25,12 @@ func main() {
 	//
 	// Note that, since the Go runtime httptest uses manually defined clients,
 	// your running HTTP tests will not trigger extra monitoring calls to Bearer.
-	secretKey := os.Getenv(agent.SecretKeyName)
+	secretKey := os.Getenv(bearer.SecretKeyName)
 	if len(secretKey) == 0 {
-		log.Fatalf(`Bearer needs a %s environment variable`, agent.SecretKeyName)
+		log.Fatalf(`Bearer needs a %s environment variable`, bearer.SecretKeyName)
 	}
-	defer agent.Init(secretKey)()
+	agent := bearer.New(secretKey)
+	defer agent.Close()
 
 	// Step 2: use the default Go client as usual to perform your API call.
 	//

@@ -17,7 +17,7 @@ import (
 )
 
 // Perform decoration tests without going to the network.
-func TestNewAgent(t *testing.T) {
+func TestNew(t *testing.T) {
 	const expected = `test handler`
 
 	tests := []struct {
@@ -30,9 +30,12 @@ func TestNewAgent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a, _ := NewAgent(ExampleWellFormedInvalidKey)
-			if a == nil && !tt.wantErr {
+			a := New(ExampleWellFormedInvalidKey)
+			if a == nil {
 				t.Fatal("got unexpected nil agent")
+			}
+			if a.Error() == nil && tt.wantErr {
+				t.Fatal("expected error but there was none")
 			}
 
 			// Set up test server.
@@ -75,25 +78,6 @@ func TestNewAgent(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
-	tests := []struct {
-		name      string
-		secretKey string
-		wantErr   bool
-	}{
-		{"well-formed invalid key", ExampleWellFormedInvalidKey, true},
-		{"ill-formed key", "foo", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := Init(tt.secretKey)
-			if err := got(); (err != nil) != tt.wantErr {
-				t.Errorf("Init()() = %v", err)
-			}
-		})
-	}
-}
-
 func TestAgent_Provider(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -114,15 +98,11 @@ func TestAgent_Provider(t *testing.T) {
 	}
 }
 
-func Test_close(t *testing.T) {
+func TestAgent_Close(t *testing.T) {
 	sb := &strings.Builder{}
 	z := zerolog.New(sb)
 	a := Agent{config: &Config{Logger: &z}, Sender: &proxy.Sender{}}
-	closer := close(&a)
-	if closer == nil {
-		t.Fatalf(`non-callable close result`)
-	}
-	err := closer()
+	err := a.Close()
 	if err != nil {
 		t.Fatalf("closer returned error: %v", err)
 	}

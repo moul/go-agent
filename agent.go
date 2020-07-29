@@ -41,32 +41,37 @@ type Agent struct {
 	config        *Config
 	baseTransport http.RoundTripper
 	transports    transportMap
+	error         error
 	*proxy.Sender
 }
 
-// NewAgent is the Agent constructor.
+// New constructs a new Agent and returns it.
 //
 // In most usage scenarios, you will only use a single Agent in a given application,
-// and pass a config.WithLogger(some *zerolog.Logger) config.Option.
-func NewAgent(secretKey string, opts ...Option) (*Agent, error) {
-	if !config.IsSecretKeyWellFormed(secretKey) {
-		return nil, fmt.Errorf("secret key %s is not well-formed", secretKey)
-	}
-	a := Agent{
+// and pass a config.WithLogger(some *io.Writer) config.Option.
+func New(secretKey string, opts ...Option) *Agent {
+	a := &Agent{
 		baseTransport: unwrapTransport(http.DefaultClient.Transport),
 		dispatcher:    events.NewDispatcher(),
 		SecretKey:     secretKey,
 		transports:    make(transportMap),
 	}
 
+	if !config.IsSecretKeyWellFormed(secretKey) {
+		a.setError(errors.New("secret key is not well-formed"))
+		return a
+	}
+
 	c, err := NewConfig(secretKey, a.baseTransport, Version, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("configuring new agent: %w", err)
+		a.setError(fmt.Errorf("configuring new agent: %w", err))
+		return a
 	}
 
 	a.config = c
 	if c.IsDisabled() {
-		return &a, errors.New(`remote config unavailable`)
+		a.setError(errors.New(`remote config unavailable`))
+		return a
 	}
 
 	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
@@ -86,7 +91,10 @@ func NewAgent(secretKey string, opts ...Option) (*Agent, error) {
 		},
 		interception.ProxyProvider{Sender: a.Sender},
 	)
-	return &a, nil
+
+	a.DecorateClientTransports()
+
+	return a
 }
 
 // DefaultTransport returns the original implementation of the http.DefaultTransport,
@@ -142,44 +150,21 @@ func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
 	}
 }
 
-// DefaultAgent is a preconfigured agent logging to os.Stderr.
-//
-// To ensure complete compatibility with the runtime "log" package, be sure to
-// log.SetOutput(DefaultAgent.Logger()).
-var DefaultAgent *Agent
-
-// uninitializedClose provides a final warning that the Bearer agent was not
-// initialized during the application execution.
-func uninitializedClose(err error) func() error {
-	return func() error {
-		log.Println(err)
-		return err
-	}
+// Error returns any error that has cause the agent to shutdown. If there has
+// been no error then it returns nil
+func (a *Agent) Error() error {
+	return a.error
 }
 
-// XXX A placeholder for future logic, as in #BG-14 prevent early termination.
-func close(a *Agent) func() error {
-	return func() error {
-		a.Trace(fmt.Sprintf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter), nil)
-		return nil
-	}
+func (a *Agent) setError(err error) {
+	a.error = err
+	log.Println(err)
 }
 
-// Init initializes the Bearer agent:
-//   - it validates the user secret key
-//   - it decorates the transport of the default client and of the clients it may receive.
-//   - it returns a closing function which will ensure orderly termination of the
-//     app, including flushing the list of records not yet transmitted to Bearer.
-func Init(secretKey string, opts ...Option) func() error {
-	var err error
-	DefaultAgent, err = NewAgent(secretKey, opts...)
-	if err != nil || DefaultAgent.config == nil || DefaultAgent.config.IsDisabled() {
-		err = fmt.Errorf("did not initialize Bearer agent: %w", err)
-		log.Println(err)
-		return uninitializedClose(err)
-	}
-	DefaultAgent.DecorateClientTransports()
-	return close(DefaultAgent)
+// Close shuts down the agent
+func (a *Agent) Close() error {
+	a.LogTrace(fmt.Sprintf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter), nil)
+	return nil
 }
 
 // Provider provides the default agent listeners:
