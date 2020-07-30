@@ -163,7 +163,12 @@ func (a *Agent) setError(err error) {
 
 // Close shuts down the agent
 func (a *Agent) Close() error {
-	a.LogTrace(fmt.Sprintf(`End of Bearer agent operation with %d API calls logged`, a.Sender.Counter), nil)
+	count := uint(0)
+	if a.Sender != nil {
+		count = a.Sender.Counter
+	}
+
+	a.LogTrace(fmt.Sprintf(`End of Bearer agent operation with %d API calls logged`, count), nil)
 	return nil
 }
 
