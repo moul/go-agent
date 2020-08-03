@@ -92,7 +92,8 @@ func New(secretKey string, opts ...Option) *Agent {
 		interception.ProxyProvider{Sender: a.Sender},
 	)
 
-	a.DecorateClientTransports()
+	http.DefaultTransport = a.Decorate(http.DefaultTransport)
+	a.DecorateClientTransports(http.DefaultClient)
 
 	return a
 }
@@ -115,8 +116,7 @@ func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
 }
 
 // DecorateClientTransports wraps the http.RoundTripper transports in all passed
-// clients, as well as the runtime library DefaultClient, with Bearer
-// instrumentation.
+// clients with Bearer instrumentation.
 func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
 	if a.config.IsDisabled() {
 		return
@@ -125,12 +125,10 @@ func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
 		a.transports = make(transportMap)
 	}
 
-	allClients := append(clients, http.DefaultClient)
-
 	a.m.Lock()
 	defer a.m.Unlock()
 	// Deduplicate transports to avoid multilayer decoration.
-	for _, c := range allClients {
+	for _, c := range clients {
 		ct := c.Transport
 		_, ok := a.transports[ct]
 		if ok {
@@ -145,7 +143,7 @@ func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
 	}
 
 	// Since we just built this map in a mutex lock consistency is guaranteed.
-	for _, client := range allClients {
+	for _, client := range clients {
 		client.Transport = a.transports[client.Transport]
 	}
 }
