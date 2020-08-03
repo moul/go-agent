@@ -106,13 +106,30 @@ func (a *Agent) DefaultTransport() http.RoundTripper {
 
 // Decorate wraps a http.RoundTripper with Bearer instrumentation.
 func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
-	if rt == nil {
-		rt = http.DefaultTransport
+	if a.config.IsDisabled() {
+		return rt
 	}
-	return &interception.RoundTripper{
+
+	if a.transports == nil {
+		a.transports = make(transportMap)
+	}
+
+	a.m.Lock()
+	defer a.m.Unlock()
+
+	existing, ok := a.transports[rt]
+	if ok {
+		return existing
+	}
+
+	var wrapped = &interception.RoundTripper{
 		Dispatcher: a.dispatcher,
 		Underlying: rt,
 	}
+
+	a.transports[rt] = wrapped
+	a.transports[wrapped] = wrapped
+	return wrapped
 }
 
 // DecorateClientTransports wraps the http.RoundTripper transports in all passed
@@ -121,30 +138,8 @@ func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
 	if a.config.IsDisabled() {
 		return
 	}
-	if a.transports == nil {
-		a.transports = make(transportMap)
-	}
-
-	a.m.Lock()
-	defer a.m.Unlock()
-	// Deduplicate transports to avoid multilayer decoration.
-	for _, c := range clients {
-		ct := c.Transport
-		_, ok := a.transports[ct]
-		if ok {
-			continue
-		}
-		a.transports[ct] = ct
-	}
-
-	// Decorate the deduplicated transports.
-	for base := range a.transports {
-		a.transports[base] = a.Decorate(base)
-	}
-
-	// Since we just built this map in a mutex lock consistency is guaranteed.
 	for _, client := range clients {
-		client.Transport = a.transports[client.Transport]
+		client.Transport = a.Decorate(client.Transport)
 	}
 }
 
