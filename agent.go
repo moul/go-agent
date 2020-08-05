@@ -25,7 +25,7 @@ const (
 	// SecretKeyName is the environment variable used to hold the Bearer secret key,
 	// specific to each client. Fetching the secret key from the environment is a
 	// best practice in 12-factor application development.
-	SecretKeyName = `BEARER_SECRETKEY`
+	SecretKeyName = `BEARER_SECRET_KEY`
 
 	// Version is the semantic agent version.
 	Version = `0.0.1`
