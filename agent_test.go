@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,13 @@ import (
 	"github.com/bearer/go-agent/interception"
 	"github.com/bearer/go-agent/proxy"
 )
+
+type testRoundTripper struct{}
+
+func (t testRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	res := http.Response{}
+	return &res, nil
+}
 
 // Perform decoration tests without going to the network.
 func TestNew(t *testing.T) {
@@ -111,5 +119,32 @@ func TestAgent_Close(t *testing.T) {
 	logLines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
 	if len(logLines) != 1 {
 		t.Fatalf("closer returned more than one event: %d", len(logLines))
+	}
+}
+
+func TestAgent_Decorate(t *testing.T) {
+	agent := Agent{sender: &proxy.Sender{}}
+	defer agent.Close()
+
+	rt := testRoundTripper{}
+	decoratedRt := agent.Decorate(rt)
+
+	if rt == decoratedRt {
+		t.Error(`expected round tripper to be wrapped by agent`)
+	}
+
+	if agent.Decorate(rt) != decoratedRt {
+		t.Error(`expected round tripper wrapper to be cached`)
+	}
+
+	if agent.Decorate(http.DefaultTransport) != agent.Decorate(nil) {
+		t.Error(`expected Decorate(nil) to be equivalent to Decorate(http.DefaultTransport)`)
+	}
+
+	agentWithError := Agent{sender: &proxy.Sender{}, error: errors.New(`oops`)}
+	defer agentWithError.Close()
+
+	if agentWithError.Decorate(rt) != rt {
+		t.Error(`expected round tripper not to be wrapped due to agent error`)
 	}
 }

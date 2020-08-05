@@ -106,8 +106,12 @@ func (a *Agent) DefaultTransport() http.RoundTripper {
 
 // Decorate wraps a http.RoundTripper with Bearer instrumentation.
 func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
-	if a.config.IsDisabled() {
+	if a.error != nil {
 		return rt
+	}
+
+	if rt == nil {
+		rt = http.DefaultTransport
 	}
 
 	if a.transports == nil {
@@ -135,7 +139,7 @@ func (a *Agent) Decorate(rt http.RoundTripper) http.RoundTripper {
 // DecorateClientTransports wraps the http.RoundTripper transports in all passed
 // clients with Bearer instrumentation.
 func (a *Agent) DecorateClientTransports(clients ...*http.Client) {
-	if a.config.IsDisabled() {
+	if a.error != nil {
 		return
 	}
 	for _, client := range clients {
