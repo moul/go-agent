@@ -70,7 +70,7 @@ func New(secretKey string, opts ...Option) *Agent {
 
 	a.config = c
 	if c.IsDisabled() {
-		a.setError(errors.New(`remote config unavailable`))
+		a.setError(errors.New(`agent disabled`))
 		return a
 	}
 
