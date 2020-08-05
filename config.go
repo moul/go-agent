@@ -80,26 +80,10 @@ func WithDisabled(value bool) Option {
 	}
 }
 
-// WithDataCollectionRules is a functional Option configuring the data collection rules.
-func WithDataCollectionRules(dcrs []*interception.DataCollectionRule) Option {
-	return func(c *Config) error {
-		c.dataCollectionRules = dcrs
-		return nil
-	}
-}
-
-// WithError is a functional Option for errors.
-func WithError(err error) Option {
+// withError is a functional Option for errors.
+func withError(err error) Option {
 	return func(*Config) error {
 		return err
-	}
-}
-
-// WithFilters is a functional Option for filters.
-func WithFilters(fs filters.FilterMap) Option {
-	return func(c *Config) error {
-		c.filters = fs
-		return nil
 	}
 }
 
@@ -119,8 +103,8 @@ func WithLogger(logger io.Writer) Option {
 	}
 }
 
-// WithRemote is an always-on functional Option loading values from Bearer platform configuration.
-func WithRemote(transport http.RoundTripper, version string) Option {
+// withRemote is an always-on functional Option loading values from Bearer platform configuration.
+func withRemote(transport http.RoundTripper, version string) Option {
 	return func(c *Config) error {
 		c.fetcher = config.NewFetcher(transport, c.Logger, version, c.fetchEndpoint, c.fetchInterval, c.runtimeEnvironmentType, c.secretKey)
 		d, err := c.fetcher.Fetch()
@@ -148,8 +132,8 @@ func WithEnvironment(rtet string) Option {
 	}
 }
 
-// WithSecretKey is a functional Option setting the secret key if it is well-formed.
-func WithSecretKey(secretKey string) Option {
+// withSecretKey is a functional Option setting the secret key if it is well-formed.
+func withSecretKey(secretKey string) Option {
 	return func(c *Config) error {
 		if c.secretKey == `` {
 			if !config.IsSecretKeyWellFormed(secretKey) {
@@ -171,7 +155,7 @@ func WithSensitiveKeys(keys []string) Option {
 	var reduced []*regexp.Regexp
 	for _, key := range keys {
 		if key == "" {
-			return WithError(errors.New("empty string may not be used as a sensitive key"))
+			return withError(errors.New("empty string may not be used as a sensitive key"))
 		}
 		dups[key]++
 		if dups[key] > 1 {
@@ -179,7 +163,7 @@ func WithSensitiveKeys(keys []string) Option {
 		}
 		reKey, err := regexp.Compile(key)
 		if err != nil {
-			return WithError(fmt.Errorf("invalid sensitive key regexp: %s", key))
+			return withError(fmt.Errorf("invalid sensitive key regexp: %s", key))
 		}
 		reduced = append(reduced, reKey)
 	}
@@ -201,7 +185,7 @@ func WithSensitiveRegexps(res []string) Option {
 	var reduced []*regexp.Regexp
 	for _, re := range res {
 		if re == "" {
-			return WithError(errors.New("empty string may not be used as a sensitive regex"))
+			return withError(errors.New("empty string may not be used as a sensitive regex"))
 		}
 		dups[re]++
 		if dups[re] > 1 {
@@ -209,7 +193,7 @@ func WithSensitiveRegexps(res []string) Option {
 		}
 		rer, err := regexp.Compile(re)
 		if err != nil {
-			return WithError(err)
+			return withError(err)
 		}
 		reduced = append(reduced, rer)
 	}
@@ -283,8 +267,8 @@ func NewConfig(secretKey string, transport http.RoundTripper, version string, op
 	alwaysOn := []Option{
 		optionDefaults,
 		optionEnvironment,
-		WithSecretKey(secretKey),
-		WithRemote(transport, version), // Sets Fetcher.
+		withSecretKey(secretKey),
+		withRemote(transport, version), // Sets Fetcher.
 	}
 
 	options := append(alwaysOn, opts...)
