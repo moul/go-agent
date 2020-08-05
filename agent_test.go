@@ -103,7 +103,7 @@ func TestAgent_Provider(t *testing.T) {
 func TestAgent_Close(t *testing.T) {
 	sb := &strings.Builder{}
 	z := zerolog.New(sb)
-	a := Agent{config: &Config{Logger: &z}, Sender: &proxy.Sender{}}
+	a := Agent{config: &Config{Logger: &z}, sender: &proxy.Sender{}}
 	err := a.Close()
 	if err != nil {
 		t.Fatalf("closer returned error: %v", err)

@@ -42,7 +42,7 @@ type Agent struct {
 	baseTransport http.RoundTripper
 	transports    transportMap
 	error         error
-	*proxy.Sender
+	sender        *proxy.Sender
 }
 
 // New constructs a new Agent and returns it.
@@ -74,10 +74,10 @@ func New(secretKey string, opts ...Option) *Agent {
 		return a
 	}
 
-	a.Sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
+	a.sender = proxy.NewSender(c.ReportOutstanding, c.ReportEndpoint, Version,
 		c.SecretKey(), c.Environment(),
 		a.DefaultTransport(), a.Logger())
-	go a.Sender.Start()
+	go a.sender.Start()
 
 	dcrp := interception.DCRProvider{DCRs: a.config.DataCollectionRules()}
 	a.dispatcher.AddProviders(interception.TopicConnect, events.ListenerProviderFunc(a.Provider), dcrp)
@@ -89,7 +89,7 @@ func New(secretKey string, opts ...Option) *Agent {
 			SensitiveKeys:    a.config.SensitiveKeys(),
 			SensitiveRegexps: a.config.SensitiveRegexps(),
 		},
-		interception.ProxyProvider{Sender: a.Sender},
+		interception.ProxyProvider{Sender: a.sender},
 	)
 
 	http.DefaultTransport = a.Decorate(http.DefaultTransport)
@@ -157,8 +157,8 @@ func (a *Agent) setError(err error) {
 // Close shuts down the agent
 func (a *Agent) Close() error {
 	count := uint(0)
-	if a.Sender != nil {
-		count = a.Sender.Counter
+	if a.sender != nil {
+		count = a.sender.Counter
 	}
 
 	a.LogTrace(fmt.Sprintf(`End of Bearer agent operation with %d API calls logged`, count), nil)
