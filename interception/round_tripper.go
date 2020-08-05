@@ -112,6 +112,9 @@ func (rt *RoundTripper) stageRequest(logLevel LogLevel, request *http.Request) (
 }
 
 func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) (LogLevel, error) {
+	if err != nil {
+		return logLevel, err
+	}
 	e := &ResponseEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
 	e.SetLogLevel(logLevel)
 	e.SetRequest(request).SetResponse(response)
@@ -133,6 +136,10 @@ func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, requ
 
 	rev.SetLogLevel(logLevel)
 	rev.SetRequest(request).SetResponse(response)
+	if err != nil {
+		rev.Error = err
+		return rev
+	}
 	_, rev.Error = rt.Dispatch(ctx, rev.BodiesEvent)
 	if rev.Error != nil {
 		return rev
@@ -165,7 +172,9 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 			t1 = time.Now()
 		}
 		rev.T1 = t1
-		_, _ = rt.Dispatch(ctx, rev)
+		if err == nil {
+			_, _ = rt.Dispatch(ctx, rev)
+		}
 	}()
 
 	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {

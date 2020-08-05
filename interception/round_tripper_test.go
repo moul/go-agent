@@ -2,6 +2,7 @@ package interception
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -62,16 +63,24 @@ func (t testRoundTripper) RoundTrip(request *http.Request) (*http.Response, erro
 	return &res, nil
 }
 
+type testErrorRoundTripper struct{}
+
+func (t testErrorRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	return nil, errors.New(`oops`)
+}
+
 func TestRoundTripper_RoundTrip(t *testing.T) {
 	tests := []struct {
-		name    string
-		liveContext bool
-		body    io.ReadCloser
-		want    *http.Response
-		wantErr bool
+		name         string
+		liveContext  bool
+		body         io.ReadCloser
+		underlyingRt http.RoundTripper
+		want         *http.Response
+		wantErr      bool
 	}{
-		{`happy empty`, true, emptyReader{}, &http.Response{}, false},
-		{`sad context`, false, emptyReader{}, nil, true},
+		{`happy empty`, true, emptyReader{}, testRoundTripper{}, &http.Response{}, false},
+		{`sad context`, false, emptyReader{}, testRoundTripper{}, nil, true},
+		{`error and no response`, true, emptyReader{}, testErrorRoundTripper{}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -83,7 +92,7 @@ func TestRoundTripper_RoundTrip(t *testing.T) {
 			}
 			rt := &RoundTripper{
 				Dispatcher: events.NewDispatcher(),
-				Underlying: testRoundTripper{},
+				Underlying: tt.underlyingRt,
 			}
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, defaultTestURL, tt.body)
 			got, err := rt.RoundTrip(req)
