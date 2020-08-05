@@ -154,3 +154,17 @@ func TestConfig_WithSensitiveRegexes(t *testing.T) {
 		})
 	}
 }
+
+func TestConfig_WithEndpoints(t *testing.T) {
+	const expected = "http://report.example.com/data"
+	c, err := agent.NewConfig(agent.ExampleWellFormedInvalidKey, nil, agent.Version,
+		agent.WithEndpoints("http://fetch.example.com/cfg", expected),
+	)
+	if err != nil {
+		t.Errorf("failed building config with report endpoint")
+	}
+	actual := c.ReportEndpoint
+	if actual != expected {
+		t.Errorf("incorrect report endpoint: expected %s, got %s", expected, actual)
+	}
+}

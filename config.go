@@ -224,6 +224,16 @@ func WithSensitiveRegexps(res []string) Option {
 	}
 }
 
+// WithEndpoints is an undocumented functional Option used for development
+// purposes.
+func WithEndpoints(fetchEndpoint string, reportEndpoint string) Option {
+	return func(c *Config) error {
+		c.fetchEndpoint = fetchEndpoint
+		c.ReportEndpoint = reportEndpoint
+		return nil
+	}
+}
+
 // DisableRemote stops the goroutine updating the Agent configuration periodically.
 func (c *Config) DisableRemote() {
 	if c.fetcher == nil {
