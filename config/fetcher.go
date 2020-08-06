@@ -209,7 +209,7 @@ func NewFetcher(transport http.RoundTripper, logger *zerolog.Logger, version str
 func (f *Fetcher) Fetch() (*Description, error) {
 	report := &bytes.Buffer{}
 	// Cannot fail, the only possible error coming from os.Hostname() is handled.
-	_ = json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.environmentType, f.secretKey))
+	_ = json.NewEncoder(report).Encode(proxy.MakeConfigReport(f.version, f.environmentType, ``))
 
 	req, err := http.NewRequest(http.MethodPost, f.endpoint, report)
 	if err != nil {

@@ -14,12 +14,12 @@ func TestMakeConfigReport(t *testing.T) {
 	type args struct {
 		version         string
 		environmentType string
-		expectedEnv string
+		expectedEnv     string
 		secretKey       string
 	}
 	tests := []struct {
-		name    string
-		args    args
+		name string
+		args args
 	}{
 		{`happy`, args{`0.0.1`, "", "", agent.ExampleWellFormedInvalidKey}},
 		{`env case`, args{
@@ -31,8 +31,8 @@ func TestMakeConfigReport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := proxy.MakeConfigReport(tt.args.version, tt.args.environmentType, tt.args.secretKey); got.Application.Environment != tt.args.expectedEnv || got.AppEnvironment != tt.args.expectedEnv {
-				t.Errorf("MakeConfigReport(environment) = %s and %s, want %s", got.AppEnvironment, got.Application.Environment, tt.args.expectedEnv)
+			if got := proxy.MakeConfigReport(tt.args.version, tt.args.environmentType, tt.args.secretKey); got.Application.Environment != tt.args.expectedEnv {
+				t.Errorf("MakeConfigReport(environment) = %s, want %s", got.Application.Environment, tt.args.expectedEnv)
 			}
 		})
 	}
