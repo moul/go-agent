@@ -3,7 +3,6 @@ package filters
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"testing"
 )
 
@@ -15,7 +14,7 @@ func (ts testString) String() string {
 
 func TestRegexMatcher_Matches(t *testing.T) {
 	var (
-		BearerMatcher = regexpMatcher{Pattern: regexp.MustCompile(BearerRE)}
+		BearerMatcher = regexpMatcher{Pattern: BearerRE}
 	)
 	tests := []struct {
 		r RegexpMatcher
@@ -51,7 +50,7 @@ func TestRegexMatcher_Regexp(t *testing.T) {
 		t.Fatalf("expected %T matcher, got %T", NewEmptyRegexpMatcher(), matcher)
 	}
 	actual := rm.Regexp().String()
-	expected := regexp.MustCompile(BearerRE).String()
+	expected := BearerRE.String()
 	if actual != expected {
 		t.Fatalf("incorrect regexp:\n  wanted %s\n  got %s", expected, actual)
 	}

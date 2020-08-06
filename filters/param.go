@@ -19,7 +19,7 @@ func (*ParamFilter) Type() FilterType {
 
 // MatchesCall is part of the Filter interface.
 func (f *ParamFilter) MatchesCall(e events.Event) bool {
-	m := NewKeyValueMatcher(f.KeyRegexp().String(), f.ValueRegexp().String())
+	m := NewKeyValueMatcher(f.KeyRegexp(), f.ValueRegexp())
 	u := e.Request().URL
 	if u == nil {
 		return false
@@ -34,7 +34,7 @@ func (f *ParamFilter) MatchesCall(e events.Event) bool {
 // To apply a case-insensitive match, prepend (?i) to the matcher regexps,
 // as in: (?i)\.bearer\.sh$
 func (f *ParamFilter) SetMatcher(matcher Matcher) error {
-	defaultMatcher := NewKeyValueMatcher(``, ``)
+	defaultMatcher := NewKeyValueMatcher(nil, nil)
 
 	m, ok := matcher.(KeyValueMatcher)
 	if !ok {
@@ -52,8 +52,7 @@ func (f *ParamFilter) SetMatcher(matcher Matcher) error {
 }
 
 func paramFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
-	// FIXME apply RegexpMatcherDescription.Flags.
-	m := NewKeyValueMatcher(fd.KeyPattern.Value, fd.ValuePattern.Value)
+	m := NewKeyValueMatcher(fd.KeyPatternRegexp(), fd.ValuePatternRegexp())
 	if m == nil {
 		return nil
 	}

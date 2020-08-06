@@ -3,18 +3,17 @@ package filters
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"testing"
 
 	"github.com/bearer/go-agent/events"
 )
 
-const (
-	path = `/foo`
-	pathRE = `^/foo$`
-)
+const path = `/foo`
+
+var pathRE = regexp.MustCompile(`^/foo$`)
 
 func TestPathFilter_MatchesCall(t *testing.T) {
-	const badRe = `[`
 	tests := []struct {
 		name    string
 		matcher RegexpMatcher
@@ -25,9 +24,9 @@ func TestPathFilter_MatchesCall(t *testing.T) {
 		{"empty vs non-empty", NewEmptyRegexpMatcher(), path, true},
 		{"non-empty vs empty", NewRegexpMatcher(pathRE), ``, false},
 		{"happy", NewRegexpMatcher(pathRE), path, true},
-		{"sad good regexp", NewRegexpMatcher(`^/bar$`), path, false},
-		// Bad regexps are replaced by a pass-all empty regexp.
-		{"sad bad regexp", NewRegexpMatcher(badRe), path, true},
+		{"sad good regexp", NewRegexpMatcher(regexp.MustCompile(`^/bar$`)), path, false},
+		// No regexp will match everything
+		{"no regexp", NewRegexpMatcher(nil), path, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -4,15 +4,15 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/bearer/go-agent/events"
 )
 
-const (
-	BearerDomain = `bearer.sh`
-	BearerRE     = `^bearer\.sh$`
-)
+const BearerDomain = `bearer.sh`
+
+var BearerRE = regexp.MustCompile(`^bearer\.sh$`)
 
 func TestDomainFilter_MatchesCall(t *testing.T) {
 	tests := []struct {
@@ -25,9 +25,9 @@ func TestDomainFilter_MatchesCall(t *testing.T) {
 		{"empty vs non-empty", NewEmptyRegexpMatcher(), BearerDomain, true},
 		{"non-empty vs empty", NewRegexpMatcher(BearerRE), ``, false},
 		{"happy", NewRegexpMatcher(BearerRE), BearerDomain, true},
-		{"sad good regexp", NewRegexpMatcher(`^bearer.com$`), BearerDomain, false},
-		// Bad regexps are replaced by a pass-all empty regexp.
-		{"sad bad regexp", NewRegexpMatcher(badRe), BearerDomain, true},
+		{"sad good regexp", NewRegexpMatcher(regexp.MustCompile(`^bearer.com$`)), BearerDomain, false},
+		// No regexp matches everything
+		{"no regexp", NewRegexpMatcher(nil), BearerDomain, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

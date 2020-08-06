@@ -40,13 +40,13 @@ func TestNewFilterFromDescription(t *testing.T) {
 		{`bad type`, nil, nil},
 		{`not`, NotFilterType, nil},
 		{`set`, FilterSetFilterType, &filterSet{}},
-		{`domain`, DomainFilterType, &DomainFilter{NewEmptyRegexpMatcher()}},
+		{`domain`, DomainFilterType, &DomainFilter{NewRegexpMatcher(nil)}},
 		{`method`, HTTPMethodFilterType, &HTTPMethodFilter{NewStringMatcher(``, true)}},
-		{`param`, ParamFilterType, &ParamFilter{NewKeyValueMatcher(``, ``)}},
-		{`path`, PathFilterType, &PathFilter{NewEmptyRegexpMatcher()}},
-		{`request headers`, RequestHeadersFilterType, &RequestHeadersFilter{NewKeyValueMatcher(``, ``)}},
-		{`response headers`, ResponseHeadersFilterType, &ResponseHeadersFilter{NewKeyValueMatcher(``, ``)}},
-		{`status`, StatusCodeFilterType, &StatusCodeFilter{NewRangeMatcher().From(0).To(0)}},
+		{`param`, ParamFilterType, &ParamFilter{NewKeyValueMatcher(nil, nil)}},
+		{`path`, PathFilterType, &PathFilter{NewRegexpMatcher(nil)}},
+		{`request headers`, RequestHeadersFilterType, &RequestHeadersFilter{NewKeyValueMatcher(nil, nil)}},
+		{`response headers`, ResponseHeadersFilterType, &ResponseHeadersFilter{NewKeyValueMatcher(nil, nil)}},
+		{`status`, StatusCodeFilterType, &StatusCodeFilter{NewRangeMatcher()}},
 		{`error`, ConnectionErrorFilterType, &ConnectionErrorFilter{}},
 		{`yes`, YesInternalFilter, &YesFilter{}},
 	}
@@ -72,7 +72,7 @@ func TestFilterDescription_String(t *testing.T) {
 	type fields struct {
 		ChildHash            string
 		Value                string
-		Pattern              RegexpMatcherDescription
+		Pattern              *RegexpMatcherDescription
 		FilterSetDescription FilterSetDescription
 		KeyValueDescription  KeyValueDescription
 		Range                RangeMatcherDescription

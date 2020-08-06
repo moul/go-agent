@@ -56,7 +56,7 @@ func (f *PathFilter) SetMatcher(matcher Matcher) error {
 
 func pathFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
 	// FIXME apply RegexpMatcherDescription.Flags
-	m := NewRegexpMatcher(fd.Pattern.Value)
+	m := NewRegexpMatcher(fd.PatternRegexp())
 	f := &PathFilter{}
 	err := f.SetMatcher(m)
 	if err != nil {

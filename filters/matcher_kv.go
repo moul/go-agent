@@ -217,28 +217,7 @@ func (m *keyValueMatcher) matchesMap(x interface{}) bool {
 // Passing an empty string for either expression builds a nil regex accepting
 // anything.
 // Passing an invalid regex string will return a unusable nil matcher.
-func NewKeyValueMatcher(key, value string) KeyValueMatcher {
-	var keyRegexp, valueRegexp *regexp.Regexp
-	var err error
-
-	if key == `` {
-		keyRegexp = nil
-	} else {
-		keyRegexp, err = regexp.Compile(key)
-		if err != nil {
-			return nil
-		}
-	}
-
-	if value == `` {
-		valueRegexp = nil
-	} else {
-		valueRegexp, err = regexp.Compile(value)
-		if err != nil {
-			return nil
-		}
-	}
-
+func NewKeyValueMatcher(keyRegexp, valueRegexp *regexp.Regexp) KeyValueMatcher {
 	return &keyValueMatcher{
 		seen:        pMap{},
 		keyRegexp:   keyRegexp,
@@ -248,15 +227,24 @@ func NewKeyValueMatcher(key, value string) KeyValueMatcher {
 
 // KeyValueDescription is a serialization-friendly representation of a KeyValueMatcher.
 type KeyValueDescription struct {
-	ValuePattern RegexpMatcherDescription
-	KeyPattern   RegexpMatcherDescription
+	ValuePattern *RegexpMatcherDescription
+	KeyPattern   *RegexpMatcherDescription
 }
 
 func (d KeyValueDescription) String() string {
-	if d.KeyPattern.Value == `` && d.ValuePattern.Value == `` {
+	if d.KeyPattern == nil && d.ValuePattern == nil {
 		return ``
 	}
-	return fmt.Sprintf(`{key: /%s/%s, value: /%s/%s}\n`,
-		d.KeyPattern.Value, d.KeyPattern.Flags,
-		d.ValuePattern.Value, d.ValuePattern.Flags)
+	return fmt.Sprintf(`{key: %s, value: %s}\n`,
+		regexpDescriptionToString(d.KeyPattern),
+		regexpDescriptionToString(d.ValuePattern),
+	)
+}
+
+func regexpDescriptionToString(pattern *RegexpMatcherDescription) string {
+	if pattern == nil {
+		return `(any)`
+	}
+
+	return fmt.Sprintf("/%s/%s", pattern.Value, pattern.Flags)
 }

@@ -55,6 +55,6 @@ func domainFilterFromDescription(_ FilterMap, fd *FilterDescription) Filter {
 	f := &DomainFilter{}
 	// If the pattern is invalid, the matcher will be nil, and SetMatcher will
 	// apply the EmptyRegexpMatcher and not fail.
-	_ = f.SetMatcher(NewRegexpMatcher(fd.Pattern.Value))
+	_ = f.SetMatcher(NewRegexpMatcher(fd.PatternRegexp()))
 	return f
 }

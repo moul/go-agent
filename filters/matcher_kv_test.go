@@ -15,8 +15,6 @@ const AlreadyChecked = "already checked"
 var foo = "foo"
 var bar = "bar"
 
-const badRe = `[`
-
 var reFoo = regexp.MustCompile(foo)
 var reBar = regexp.MustCompile(bar)
 var noneSeen = func() pMap { return pMap{} }
@@ -230,21 +228,18 @@ func Test_keyValueMatcher_track(t *testing.T) {
 
 func TestNewKeyValueMatcher(t *testing.T) {
 	tests := []struct {
-		name    string
-		key     string
-		value   string
-		wantNil bool
+		name        string
+		keyRegexp   *regexp.Regexp
+		valueRegexp *regexp.Regexp
+		wantNil     bool
 	}{
-		{"happy", foo, bar, false},
-		{"sad key", badRe, bar, true},
-		{"sad value", foo, badRe, true},
-		{"sad both", badRe, badRe, true},
-		{"empty key", ``, bar, false},
-		{"empty value", foo, ``, false},
+		{"happy", reFoo, reBar, false},
+		{"empty key", nil, reBar, false},
+		{"empty value", reFoo, nil, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewKeyValueMatcher(tt.key, tt.value); (got == nil) != tt.wantNil {
+			if got := NewKeyValueMatcher(tt.keyRegexp, tt.valueRegexp); (got == nil) != tt.wantNil {
 				t.Errorf("NewKeyValueMatcher() = %v, want %v", got, tt.wantNil)
 			}
 		})

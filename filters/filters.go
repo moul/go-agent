@@ -3,6 +3,7 @@ package filters
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/bearer/go-agent/events"
@@ -149,7 +150,7 @@ type FilterDescription struct {
 
 	// Pattern is set on filters using filters.RegexpMatcher, like filters.DomainFilter.
 	// XXX Its fields are not portable across regexp implementations.
-	Pattern RegexpMatcherDescription
+	Pattern *RegexpMatcherDescription
 
 	// FilterSetDescription carries the fields set on filters.FilterSet filters.
 	FilterSetDescription
@@ -179,7 +180,9 @@ func (d FilterDescription) String() string {
 	if d.Value != `` {
 		b.WriteString(`Value: ` + d.Value + "\n")
 	}
-	b.WriteString(d.Pattern.String())
+	if d.Pattern != nil {
+		b.WriteString(d.Pattern.String())
+	}
 	b.WriteString(d.FilterSetDescription.String())
 	b.WriteString(d.KeyValueDescription.String())
 	b.WriteString(d.Range.String())
@@ -188,4 +191,36 @@ func (d FilterDescription) String() string {
 		s += "\n"
 	}
 	return s
+}
+
+// PatternRegexp returns the Pattern as a Regexp
+func (d FilterDescription) PatternRegexp() *regexp.Regexp {
+	return descriptionToRegexp(d.Pattern)
+}
+
+// KeyPatternRegexp returns the KeyPattern as a Regexp
+func (d FilterDescription) KeyPatternRegexp() *regexp.Regexp {
+	return descriptionToRegexp(d.KeyPattern)
+}
+
+// ValuePatternRegexp returns the ValuePattern as a Regexp
+func (d FilterDescription) ValuePatternRegexp() *regexp.Regexp {
+	return descriptionToRegexp(d.ValuePattern)
+}
+
+func descriptionToRegexp(description *RegexpMatcherDescription) *regexp.Regexp {
+	if description == nil {
+		return nil
+	}
+
+	expr := description.Value
+	if description.Flags != `` {
+		expr = fmt.Sprintf("(?%s)%s", description.Flags, expr)
+	}
+
+	if re, err := regexp.Compile(expr); err == nil {
+		return re
+	}
+
+	return nil
 }

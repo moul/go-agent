@@ -54,17 +54,10 @@ func (m *regexpMatcher) Regexp() *regexp.Regexp {
 }
 
 // NewRegexpMatcher creates a RangeMatcher.
-//   - If the regex is invalid, the matcher will be nil.
-//   - Otherwise it will be a usable matcher.
-func NewRegexpMatcher(s string) RegexpMatcher {
-	re, err := regexp.Compile(s)
-	if err != nil {
-		return nil
-	}
-	rm := regexpMatcher{
+func NewRegexpMatcher(re *regexp.Regexp) RegexpMatcher {
+	return &regexpMatcher{
 		Pattern: re,
 	}
-	return &rm
 }
 
 // RegexpMatcherDescription is a serialization-friendly description of a RegexpMatcher.
@@ -82,4 +75,3 @@ func (d RegexpMatcherDescription) String() string {
 	}
 	return fmt.Sprintf("Regexp: /%s/%s\n", d.Value, d.Flags)
 }
-

@@ -21,7 +21,7 @@ func (f *RequestHeadersFilter) ensureMatcher() {
 	if !isNilInterface(f.KeyValueMatcher) {
 		return
 	}
-	_ = f.SetMatcher(NewKeyValueMatcher(``, ``))
+	_ = f.SetMatcher(NewKeyValueMatcher(nil, nil))
 }
 
 // MatchesCall is part of the Filter interface.
@@ -37,7 +37,7 @@ func (f *RequestHeadersFilter) MatchesCall(e events.Event) bool {
 // To apply a case-insensitive match, prepend (?i) to the matcher regexps,
 // as in: (?i)\.bearer\.sh$
 func (f *RequestHeadersFilter) SetMatcher(matcher Matcher) error {
-	defaultMatcher := NewKeyValueMatcher(``, ``)
+	defaultMatcher := NewKeyValueMatcher(nil, nil)
 
 	m, ok := matcher.(KeyValueMatcher)
 	if !ok {
@@ -56,7 +56,7 @@ func (f *RequestHeadersFilter) SetMatcher(matcher Matcher) error {
 
 func requestFilterHeadersFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
 	// FIXME apply RegexpMatcherDescription.Flags
-	m := NewKeyValueMatcher(fd.KeyPattern.Value, fd.ValuePattern.Value)
+	m := NewKeyValueMatcher(fd.KeyPatternRegexp(), fd.ValuePatternRegexp())
 	if m == nil {
 		return nil
 	}
