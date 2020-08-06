@@ -349,11 +349,11 @@ type ReportLog struct {
 	StatusCode      int         `json:"statusCode,omitempty"`
 
 	// filters.StageBodies. Note that these 4 may very well NOT be valid strings.
-	RequestBody  string `json:"requestBody"`
-	ResponseBody string `json:"responseBody"`
+	RequestBody  string `json:"requestBody,omitempty"`
+	ResponseBody string `json:"responseBody,omitempty"`
 	// Payload SHAs
-	RequestBodyPayloadSHA  string `json:"requestBodyPayloadSha"`
-	ResponseBodyPayloadSHA string `json:"responseBodyPayloadSha"`
+	RequestBodyPayloadSHA  string `json:"requestBodyPayloadSha,omitempty"`
+	ResponseBodyPayloadSHA string `json:"responseBodyPayloadSha,omitempty"`
 
 	// Error
 	ErrorCode        string `json:"errorCode,omitempty"`
