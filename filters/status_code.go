@@ -48,10 +48,10 @@ func (f *StatusCodeFilter) SetMatcher(matcher Matcher) error {
 func statusCodeFilterFromDescription(filterMap FilterMap, fd *FilterDescription) Filter {
 	r := fd.Range
 	m := NewRangeMatcher()
-	if r.From != `` {
+	if r.From != nil {
 		m.From(r.ToInt(r.From))
 	}
-	if r.To != `` {
+	if r.To != nil {
 		m.To(r.ToInt(r.To))
 	}
 	if r.ExcludeFrom {

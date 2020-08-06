@@ -7,7 +7,9 @@ import (
 
 // NewHTTPStatusMatcher returns a range matcher for the valid HTTP status code range.
 func NewHTTPStatusMatcher() RangeMatcher {
-	return NewRangeMatcher().ExcludeTo().From(100).To(600)
+	from := 100
+	to := 600
+	return NewRangeMatcher().ExcludeTo().From(from).To(to)
 }
 
 // RangeMatcher provides the ability to check whether an int value is within an integer range.
@@ -139,7 +141,8 @@ func (RangeMatcherDescription) ToInt(mixed interface{}) int {
 	case int:
 		return x
 	case float64:
-		return int(x)
+		n := int(x)
+		return n
 	default:
 		return 0
 	}
@@ -151,7 +154,13 @@ func (d RangeMatcherDescription) String() string {
 		return ``
 	}
 
-	rm := NewRangeMatcher().From(d.ToInt(d.From)).To(d.ToInt(d.To))
+	rm := NewRangeMatcher()
+	if d.From != nil {
+		rm.From(d.ToInt(d.From))
+	}
+	if d.To != nil {
+		rm.To(d.ToInt(d.To))
+	}
 	if d.ExcludeFrom {
 		rm.ExcludeFrom()
 	}
@@ -160,4 +169,3 @@ func (d RangeMatcherDescription) String() string {
 	}
 	return `Range: ` + rm.String() + "\n"
 }
-
