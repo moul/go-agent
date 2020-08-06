@@ -31,6 +31,9 @@ const (
 	// Loss is the ReportLog Type for synthetic reports warning of reports loss.
 	Loss = `REPORT_LOSS`
 
+	// AuthorizationHeader is the canonical Authorization header name.
+	AuthorizationHeader = `Authorization`
+
 	// AcceptHeader is the canonical Accept header name.
 	AcceptHeader = `Accept`
 
@@ -275,6 +278,7 @@ func (s *Sender) WriteLog(rl ReportLog) {
 		s.Warn().Err(err).Msg(`error building the log request`)
 		return
 	}
+	req.Header.Add(AuthorizationHeader, s.SecretKey)
 	req.Header.Add(AcceptHeader, ContentTypeJSON)
 	req.Header.Set(ContentTypeHeader, FullContentTypeJSON)
 	res, err := s.Client.Do(req)

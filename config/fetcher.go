@@ -217,7 +217,7 @@ func (f *Fetcher) Fetch() (*Description, error) {
 		return nil, err
 	}
 	req.Header.Add(proxy.AcceptHeader, "application/json")
-	req.Header.Add("Authorization", f.secretKey)
+	req.Header.Add(proxy.AuthorizationHeader, f.secretKey)
 	req.Header.Set(proxy.ContentTypeHeader, proxy.FullContentTypeJSON)
 
 	client := http.Client{Transport: f.transport}
