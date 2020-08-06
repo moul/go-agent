@@ -24,9 +24,6 @@ const (
 	// BodyUndecodable is the replacement string for bodies which were expected to be parsable but failed decoding.
 	BodyUndecodable = `(could not decode data)`
 
-	// LogLevelKey is the key in contexts where the current LogLevel may be found.
-	LogLevelKey ContextKey = `BearerLogLevel`
-
 	// MaximumBodySize is the largest resBody size to store whole.
 	MaximumBodySize = 1 << 20
 )
@@ -117,7 +114,7 @@ func (ll *LogLevel) addRestrictedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 	rl.StartedAt = int(re.T0.UnixNano() / 1E6)
 	rl.EndedAt = int(re.T1.UnixNano() / 1E6)
 	rl.Stage = string(re.Stage)
-	rl.ActiveDataCollectionRules = []string{}
+	rl.ActiveDataCollectionRules = PrepareTriggeredRulesForReport(re.TriggeredDataCollectionRules())
 	rl.Path = u.Path
 	rl.Method = request.Method
 	rl.URL = u.String()

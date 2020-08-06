@@ -42,24 +42,42 @@ const (
 	TopicReport events.Topic = "report_log"
 )
 
+// APIEventConfig represents configuration values derived from all triggered
+// DataCollectionRule objects.
+type APIEventConfig struct {
+	IsActive bool
+	LogLevel
+}
+
 // APIEvent is the type common to all API call lifecycle events.
 type APIEvent interface {
 	events.Event
-	LogLevel() LogLevel
-	SetLogLevel(l LogLevel) APIEvent
+	Config() *APIEventConfig
+	SetConfig(value *APIEventConfig) APIEvent
+	TriggeredDataCollectionRules() []*DataCollectionRule
+	SetTriggeredDataCollectionRules(rules []*DataCollectionRule) APIEvent
 }
 type apiEvent struct {
 	events.EventBase
-	logLevel LogLevel
+	triggeredDataCollectionRules []*DataCollectionRule
+	config                       *APIEventConfig
 }
 
-func (ae *apiEvent) LogLevel() LogLevel {
-	return ae.logLevel
+func (ae *apiEvent) Config() *APIEventConfig {
+	return ae.config
 }
 
-func (ae *apiEvent) SetLogLevel(l LogLevel) APIEvent {
-	// Enforce value validation.
-	ae.logLevel = LogLevelFromInt(int(l))
+func (ae *apiEvent) SetConfig(value *APIEventConfig) APIEvent {
+	ae.config = value
+	return ae
+}
+
+func (ae *apiEvent) TriggeredDataCollectionRules() []*DataCollectionRule {
+	return ae.triggeredDataCollectionRules
+}
+
+func (ae *apiEvent) SetTriggeredDataCollectionRules(rules []*DataCollectionRule) APIEvent {
+	ae.triggeredDataCollectionRules = rules
 	return ae
 }
 
@@ -97,7 +115,7 @@ func (re ConnectEvent) Topic() events.Topic {
 
 // NewConnectEvent builds a ConnectEvent for a url.URL.
 func NewConnectEvent(url *url.URL) *ConnectEvent {
-	e := &ConnectEvent{}
+	e := &ConnectEvent{apiEvent: apiEvent{config: defaultAPIEventConfig()}}
 	e.SetData(url)
 	return e
 }
@@ -147,15 +165,15 @@ func (ReportEvent) Topic() events.Topic {
 func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
 	be := &BodiesEvent{
 		apiEvent: apiEvent{
-			EventBase: events.EventBase{Error: err},
-			logLevel:  logLevel,
+			EventBase:                    events.EventBase{Error: err},
+			triggeredDataCollectionRules: make([]*DataCollectionRule, 0),
 		},
 	}
 	be.SetTopic(string(TopicRequest))
 
 	return &ReportEvent{
 		BodiesEvent: be,
-		Stage: stage,
+		Stage:       stage,
 	}
 }
 
@@ -166,35 +184,34 @@ type DCRProvider struct {
 }
 
 func (p *DCRProvider) onActiveTopics(_ context.Context, e events.Event) error {
-	var logLevel LogLevel
 	ae, ok := e.(APIEvent)
 	if !ok {
 		return fmt.Errorf("topic %s used with non-APIEvent type %T", e.Topic(), e)
 	}
-	logLevel = ae.LogLevel()
-	original := logLevel
+
+	triggeredDataCollectionRules := make([]*DataCollectionRule, 0)
+	eventConfig := ae.Config()
+	if eventConfig == nil {
+		eventConfig = defaultAPIEventConfig()
+	}
+
 	for _, dcr := range p.DCRs {
-		// Maximum LogLevel reached: no need to check more rules.
-		if logLevel == All {
-			break
-		}
-		// Rule won't allow more logging, just skip it.
-		if dcr.LogLevel <= logLevel {
-			continue
-		}
-		// No filter: just apply the rule logLevel without running it
-		if dcr.Filter == nil {
-			logLevel = dcr.LogLevel
-			continue
-		}
-		// Rule may increase logLevel if it matches: run it.
-		if dcr.MatchesCall(e) {
-			logLevel = dcr.LogLevel
+		if dcr.Filter == nil || dcr.MatchesCall(e) {
+			triggeredDataCollectionRules = append(triggeredDataCollectionRules, dcr)
+
+			if dcr.LogLevel != nil {
+				eventConfig.LogLevel = *dcr.LogLevel
+			}
+
+			if dcr.IsActive != nil {
+				eventConfig.IsActive = *dcr.IsActive
+			}
 		}
 	}
-	if logLevel != original {
-		ae.SetLogLevel(logLevel)
-	}
+
+	ae.SetTriggeredDataCollectionRules(triggeredDataCollectionRules)
+	ae.SetConfig(eventConfig)
+
 	return nil
 }
 
@@ -218,7 +235,7 @@ func (p ProxyProvider) onReport(_ context.Context, e events.Event) error {
 	if !ok {
 		return fmt.Errorf("topic %s used with event type %T", e.Topic(), e)
 	}
-	ll := re.LogLevel()
+	ll := re.Config().LogLevel
 	rl := ll.Prepare(re)
 	p.Send(rl)
 	return nil
@@ -231,4 +248,11 @@ func (p ProxyProvider) Listeners(e events.Event) []events.Listener {
 	}
 
 	return []events.Listener{p.onReport}
+}
+
+func defaultAPIEventConfig() *APIEventConfig {
+	return &APIEventConfig{
+		IsActive: true,
+		LogLevel: Detected,
+	}
 }

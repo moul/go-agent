@@ -2,20 +2,21 @@ package interception
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
+
+	"github.com/bearer/go-agent/proxy"
 )
 
 func TestDataCollectionRuleDescription_String(t *testing.T) {
+	allLogLevel := All.String()
+	trueVal := true
+	falseVal := false
 	type fields struct {
 		FilterHash string
-		Params     struct {
-			AggregationFilterHash string
-			Buid                  string
-			IsErrorTriggerfilter  bool
-			TypeName              string
-		}
-		Config    DynamicConfigDescription
-		Signature string
+		Params     map[string]interface{}
+		Config     DynamicConfigDescription
+		Signature  string
 	}
 	tests := []struct {
 		name   string
@@ -24,84 +25,66 @@ func TestDataCollectionRuleDescription_String(t *testing.T) {
 	}{
 		{`happy`, fields{
 			FilterHash: `foo`,
-			Params: struct {
-				AggregationFilterHash string
-				Buid                  string
-				IsErrorTriggerfilter  bool
-				TypeName              string
-			}{``, ``, false, `ApiRule`},
+			Params: map[string]interface{}{
+				`TypeName`: `ApiRule`,
+			},
 			Config: DynamicConfigDescription{
-				LogLevel: All.String(),
-				Active:   true,
+				LogLevel: &allLogLevel,
+				Active:   &trueVal,
 			},
 			Signature: "",
-		}, "foo                         : ApiRule                - Active/All\n"},
-		{`sad no filter`, fields{
-			Params: struct {
-				AggregationFilterHash string
-				Buid                  string
-				IsErrorTriggerfilter  bool
-				TypeName              string
-			}{``, ``, false, `ApiRule`},
+		}, "foo                         : ApiRule               \n"},
+		{`no filter`, fields{
+			Params: map[string]interface{}{
+				`TypeName`: `ApiRule`,
+			},
 			Config: DynamicConfigDescription{
-				LogLevel: All.String(),
-				Active:   true,
+				LogLevel: &allLogLevel,
+				Active:   &trueVal,
 			},
 			Signature: "",
-		}, "(unset)                     : ApiRule                - Active/All\n"},
+		}, "(unset)                     : ApiRule               \n"},
 		{`trigger filter`, fields{
-			Params: struct {
-				AggregationFilterHash string
-				Buid                  string
-				IsErrorTriggerfilter  bool
-				TypeName              string
-			}{``, ``, true, `ApiRule`},
+			Params: map[string]interface{}{
+				`TypeName`: `ApiRule`,
+			},
 			Config: DynamicConfigDescription{
-				LogLevel: All.String(),
-				Active:   true,
+				LogLevel: &allLogLevel,
+				Active:   &trueVal,
 			},
 			Signature: "",
-		}, "(unset)                     : ApiRule                - Active/All, IETF\n"},
+		}, "(unset)                     : ApiRule               \n"},
 		{`with BUID`, fields{
-			Params: struct {
-				AggregationFilterHash string
-				Buid                  string
-				IsErrorTriggerfilter  bool
-				TypeName              string
-			}{``, `bar`, false, `ApiRule`},
+			Params: map[string]interface{}{
+				`TypeName`: `ApiRule`,
+			},
 			Config: DynamicConfigDescription{
-				LogLevel: All.String(),
-				Active:   true,
+				LogLevel: &allLogLevel,
+				Active:   &trueVal,
 			},
 			Signature: "",
-		}, "(unset)                     : ApiRule                - Active/All, BUID: bar\n"},
+		}, "(unset)                     : ApiRule               \n"},
 		{`with aggregation hash`, fields{
-			Params: struct {
-				AggregationFilterHash string
-				Buid                  string
-				IsErrorTriggerfilter  bool
-				TypeName              string
-			}{`baz`, ``, false, `ApiRule`},
+			Params: map[string]interface{}{
+				`TypeName`: `ApiRule`,
+			},
 			Config: DynamicConfigDescription{
-				LogLevel: All.String(),
-				Active:   true,
+				LogLevel: &allLogLevel,
+				Active:   &trueVal,
 			},
 			Signature: "",
-		}, "(unset)                     : ApiRule                - Active/All, AH: baz\n"},
+		}, "(unset)                     : ApiRule               \n"},
 		{`sad inactive`, fields{
 			FilterHash: `foo`,
-			Params: struct {
-				AggregationFilterHash string
-				Buid                  string
-				IsErrorTriggerfilter  bool
-				TypeName              string
-			}{``, ``, false, `ApiRule`},
+			Params: map[string]interface{}{
+				`TypeName`: `ApiRule`,
+			},
 			Config: DynamicConfigDescription{
-				LogLevel: All.String(),
-				Active:   false,
+				LogLevel: &allLogLevel,
+				Active:   &falseVal,
 			},
 			Signature: "",
-		}, "foo                         : ApiRule                - Inactive\n"},
+		}, "foo                         : ApiRule               \n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -121,54 +104,35 @@ func TestDataCollectionRuleDescription_String(t *testing.T) {
 	}
 }
 
-func TestDataCollectionRuleDescription_IsActive(t *testing.T) {
-	tests := []struct {
-		name   string
-		active interface{}
-		want   bool
-	}{
-		{`active`, true, true},
-		{`inactive`, false, false},
-		{`nil`, nil, true},
-		{`empty string`, ``, true},
-		{`string false`, `false`, false},
-		{`string true`, `True`, true},
-		{`number`, 2, false},
+func TestPrepareTriggeredRulesForReport(t *testing.T) {
+	rules := []*DataCollectionRule{
+		&DataCollectionRule{
+			FilterHash: `hash1`,
+			Params:     map[string]interface{}{`TypeName`: `T1`},
+			Signature:  `sig1`,
+		},
+		&DataCollectionRule{
+			FilterHash: `hash2`,
+			Params:     map[string]interface{}{`TypeName`: `T2`},
+			Signature:  `sig2`,
+		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			d := DataCollectionRuleDescription{
-				Config: DynamicConfigDescription{Active: tt.active},
-			}
-			if got := d.IsActive(); got != tt.want {
-				t.Errorf("IsActive() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
-func TestDynamicConfigDescription_String(t *testing.T) {
-	type fields struct {
-		LogLevel string
-		Active   interface{}
+	expected := []proxy.ReportDataCollectionRule{
+		proxy.ReportDataCollectionRule{
+			FilterHash: `hash1`,
+			Params:     map[string]interface{}{`TypeName`: `T1`},
+			Signature:  `sig1`,
+		},
+		proxy.ReportDataCollectionRule{
+			FilterHash: `hash2`,
+			Params:     map[string]interface{}{`TypeName`: `T2`},
+			Signature:  `sig2`,
+		},
 	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{`active/all`, fields{All.String(), true}, `Active/All`},
-		{`inactive/all`, fields{All.String(), false}, `Inactive`},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dcd := DynamicConfigDescription{
-				LogLevel: tt.fields.LogLevel,
-				Active:   tt.fields.Active,
-			}
-			if got := dcd.String(); got != tt.want {
-				t.Errorf("String() = %v, want %v", got, tt.want)
-			}
-		})
+
+	reportRules := PrepareTriggeredRulesForReport(rules)
+	if !reflect.DeepEqual(reportRules, expected) {
+		t.Errorf("Expected:\n%#v\n\nActual:\n%#v\n", expected, reportRules)
 	}
 }

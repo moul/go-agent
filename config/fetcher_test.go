@@ -19,12 +19,9 @@ import (
 func TestDescription_String(t *testing.T) {
 	dcr := interception.DataCollectionRuleDescription{
 		FilterHash: "hash",
-		Params: struct {
-			AggregationFilterHash string
-			Buid                  string
-			IsErrorTriggerfilter  bool
-			TypeName              string
-		}{`af hash`, `buid`, false, ``},
+		Params: map[string]interface{}{
+			`TypeName`: ``,
+		},
 		Config: interception.DynamicConfigDescription{},
 	}
 	yes := filters.FilterDescription{

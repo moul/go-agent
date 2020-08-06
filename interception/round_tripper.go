@@ -82,78 +82,89 @@ func RFCListener(_ context.Context, e events.Event) error {
 }
 
 // stageConnect implements the Bearer TopicConnect stage.
-func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) (LogLevel, error) {
+func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) (*APIEventConfig, error) {
 	e := NewConnectEvent(url)
 	_, err := rt.Dispatch(ctx, e)
 	if err != nil {
-		return e.LogLevel(), err
+		return e.Config(), err
 	}
 	if err = ctx.Err(); err != nil {
-		return e.LogLevel(), err
+		return e.Config(), err
 	}
-	return e.LogLevel(), nil
+	return e.Config(), nil
 }
 
-func (rt *RoundTripper) stageRequest(logLevel LogLevel, request *http.Request) (LogLevel, error) {
+func (rt *RoundTripper) stageRequest(apiEventConfig *APIEventConfig, request *http.Request) (*APIEventConfig, error) {
+	if apiEventConfig == nil || !apiEventConfig.IsActive {
+		return apiEventConfig, nil
+	}
+
 	ctx := request.Context()
 	be := &BodiesEvent{}
 	be.SetTopic(string(TopicRequest))
-	be.SetLogLevel(logLevel)
+	be.SetConfig(apiEventConfig)
 	be.SetRequest(request)
 	_, err := rt.Dispatch(ctx, be)
 	if err != nil {
-		return be.LogLevel(), err
+		return be.Config(), err
 	}
 	if err = ctx.Err(); err != nil {
-		return be.LogLevel(), err
+		return be.Config(), err
 	}
 
-	return be.LogLevel(), nil
+	return be.Config(), nil
 }
 
-func (rt *RoundTripper) stageResponse(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) (LogLevel, error) {
+func (rt *RoundTripper) stageResponse(ctx context.Context, apiEventConfig *APIEventConfig, request *http.Request, response *http.Response, err error) (*APIEventConfig, error) {
+	if apiEventConfig == nil || !apiEventConfig.IsActive {
+		return apiEventConfig, nil
+	}
 	if err != nil {
-		return logLevel, err
+		return apiEventConfig, err
 	}
 	e := &ResponseEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
-	e.SetLogLevel(logLevel)
+	e.SetConfig(apiEventConfig)
 	e.SetRequest(request).SetResponse(response)
 	_, err = rt.Dispatch(ctx, e)
 	if err != nil {
-		return e.LogLevel(), err
+		return e.Config(), err
 	}
 	if err = ctx.Err(); err != nil {
-		return e.LogLevel(), err
+		return e.Config(), err
 	}
 
-	return e.LogLevel(), nil
+	return e.Config(), nil
 }
 
-func (rt *RoundTripper) stageBodies(ctx context.Context, logLevel LogLevel, request *http.Request, response *http.Response, err error) *ReportEvent {
-	rev := NewReportEvent(logLevel, proxy.StageBodies, err)
-	rev.BodiesEvent = &BodiesEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
-	rev.BodiesEvent.SetTopic(string(TopicBodies))
-
-	rev.SetLogLevel(logLevel)
+func (rt *RoundTripper) stageBodies(ctx context.Context, apiEventConfig *APIEventConfig, request *http.Request, response *http.Response, err error) (*APIEventConfig, *ReportEvent) {
+	if apiEventConfig == nil || !apiEventConfig.IsActive {
+		return apiEventConfig, nil
+	}
+	rev := NewReportEvent(apiEventConfig.LogLevel, proxy.StageBodies, err)
+	e := &BodiesEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
+	e.SetTopic(string(TopicBodies))
+	rev.BodiesEvent = e
+	e.SetConfig(apiEventConfig)
+	rev.SetConfig(apiEventConfig)
 	rev.SetRequest(request).SetResponse(response)
 	if err != nil {
 		rev.Error = err
-		return rev
+		return e.Config(), rev
 	}
 	_, rev.Error = rt.Dispatch(ctx, rev.BodiesEvent)
 	if rev.Error != nil {
-		return rev
+		return e.Config(), rev
 	}
 	if rev.Error = ctx.Err(); rev.Error != nil {
-		return rev
+		return e.Config(), rev
 	}
 	rev.T1 = rev.readTimestamp
-	return rev
+	return e.Config(), rev
 }
 
 // RoundTrip implements the http.RoundTripper interface.
 func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	logLevel := Detected
+	var apiEventConfig *APIEventConfig
 	var err error
 	var rev *ReportEvent
 	var (
@@ -162,45 +173,50 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		t1 = t0
 	)
 
-	// XXX To add a platform-driven timeout, use context.WithTimeout here.
-	ctx := context.WithValue(request.Context(), LogLevelKey, logLevel)
+	ctx := request.Context()
 
 	defer func() {
+		if rev == nil {
+			return
+		}
 		rev.T0 = t0
 		// If the t1 reset was not reached, us the time spent in the agent.
 		if t1 == t0 {
 			t1 = time.Now()
 		}
 		rev.T1 = t1
-		if err == nil {
+		if err == nil && apiEventConfig != nil && apiEventConfig.IsActive {
 			_, _ = rt.Dispatch(ctx, rev)
 		}
 	}()
 
-	if logLevel, err = rt.stageConnect(ctx, request.URL); err != nil {
-		rev = NewReportEvent(logLevel, proxy.StageConnect, err)
+	if apiEventConfig, err = rt.stageConnect(ctx, request.URL); err != nil {
+		rev = NewReportEvent(apiEventConfig.LogLevel, proxy.StageConnect, err)
 		rev.SetRequest(request)
 		return nil, err
 	}
 
-	if logLevel, err = rt.stageRequest(logLevel, request); err != nil {
-		rev = NewReportEvent(logLevel, proxy.StageRequest, err)
+	if apiEventConfig, err = rt.stageRequest(apiEventConfig, request); err != nil {
+		rev = NewReportEvent(apiEventConfig.LogLevel, proxy.StageRequest, err)
 		rev.SetRequest(request)
 		return nil, err
 	}
 
 	// Perform and time the underlying API call, without resBody capture.
 	t0 = time.Now()
-	response, err := rt.Underlying.RoundTrip(request)
+	response, rtErr := rt.Underlying.RoundTrip(request)
 	t1 = time.Now()
 
-	if logLevel, err = rt.stageResponse(ctx, logLevel, request, response, err); err != nil {
-		rev = NewReportEvent(logLevel, proxy.StageResponse, err)
+	if apiEventConfig, err = rt.stageResponse(ctx, apiEventConfig, request, response, rtErr); err != nil {
+		rev = NewReportEvent(apiEventConfig.LogLevel, proxy.StageResponse, err)
 		rev.SetRequest(request).SetResponse(response)
 		return rev.Response(), err
 	}
 
 	// No need to check logLevel here: if we reached that point, logLevel is All.
-	rev = rt.stageBodies(ctx, logLevel, request, response, err)
+	apiEventConfig, rev = rt.stageBodies(ctx, apiEventConfig, request, response, err)
+	if rev == nil {
+		return response, rtErr
+	}
 	return rev.Response(), rev.Err()
 }

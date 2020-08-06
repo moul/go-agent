@@ -324,11 +324,11 @@ type ReportLog struct {
 
 	// Common, except for Detected level.
 
-	StartedAt                 int      `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
-	EndedAt                   int      `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
-	Type                      string   `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
-	Stage                     string   `json:"stageType,omitempty"`
-	ActiveDataCollectionRules []string `json:"activeDataCollectionRules,omitempty"` // More compact than sending the complete rule.
+	StartedAt                 int                        `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
+	EndedAt                   int                        `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
+	Type                      string                     `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
+	Stage                     string                     `json:"stageType,omitempty"`
+	ActiveDataCollectionRules []ReportDataCollectionRule `json:"activeDataCollectionRules,omitempty"` // More compact than sending the complete rule.
 
 	// filters.StageConnect
 
@@ -358,4 +358,12 @@ type ReportLog struct {
 	// Error
 	ErrorCode        string `json:"errorCode,omitempty"`
 	ErrorFullMessage string `json:"errorFullMessage,omitempty"`
+}
+
+// ReportDataCollectionRule is a subset of a DataCollectionRule used to report
+// triggered rules back to the platform
+type ReportDataCollectionRule struct {
+	FilterHash string                 `json:"filterHash,omitempty"`
+	Params     map[string]interface{} `json:"params,omitempty"`
+	Signature  string                 `json:"signature"`
 }

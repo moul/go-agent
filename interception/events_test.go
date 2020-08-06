@@ -5,7 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 	"testing"
+
+	"github.com/bearer/go-agent/filters"
 
 	"github.com/rs/zerolog"
 
@@ -88,6 +91,79 @@ func TestDCRProvider_Listeners(t *testing.T) {
 			p := DCRProvider{}
 			if got := p.Listeners((&events.EventBase{}).SetTopic(string(tt.topic))); len(got) != tt.wantLen {
 				t.Errorf("Listeners() = %d, want %d", len(got), tt.wantLen)
+			}
+		})
+	}
+}
+
+func TestDCRProvider_onActiveTopics(t *testing.T) {
+	req, _ := http.NewRequest(`POST`, `http://test.example.com`, nil)
+	baseEvent := events.EventBase{}
+	baseEvent.SetRequest(req)
+
+	restricted := Restricted
+	all := All
+	falseVal := false
+	rule1 := &DataCollectionRule{
+		Filter:   &filters.HTTPMethodFilter{StringMatcher: filters.NewStringMatcher(`POST`, false)},
+		LogLevel: &restricted,
+		IsActive: &falseVal,
+	}
+	rule2 := &DataCollectionRule{
+		// Non-matching filter
+		Filter: &filters.HTTPMethodFilter{StringMatcher: filters.NewStringMatcher(`GET`, false)},
+	}
+	rule3 := &DataCollectionRule{Filter: nil, LogLevel: &all}
+
+	tests := []struct {
+		name                   string
+		dcrs                   []*DataCollectionRule
+		e                      events.Event
+		expectedTriggeredRules []*DataCollectionRule
+		expectedLogLevel       LogLevel
+		expectedIsActive       bool
+		wantErr                bool
+	}{
+		{`defaults`, []*DataCollectionRule{}, &apiEvent{EventBase: baseEvent},
+			[]*DataCollectionRule{}, Detected, true, false},
+		{`matching rules`, []*DataCollectionRule{rule1, rule2, rule3}, &apiEvent{EventBase: baseEvent},
+			[]*DataCollectionRule{rule1, rule3}, All, false, false},
+		{`sad bad event`, []*DataCollectionRule{}, &events.EventBase{}, nil, Detected, false, true},
+	}
+	ctx := context.Background()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := DCRProvider{
+				DCRs: tt.dcrs,
+			}
+			if err := p.onActiveTopics(ctx, tt.e); (err != nil) != tt.wantErr {
+				t.Errorf("onActiveTopics() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if ae, ok := tt.e.(APIEvent); ok && !tt.wantErr {
+				if !reflect.DeepEqual(ae.TriggeredDataCollectionRules(), tt.expectedTriggeredRules) {
+					t.Errorf(
+						"TriggeredDataCollectionRules do not match. Expected:\n%#v\n\nActual:\n%#v\n",
+						tt.expectedTriggeredRules,
+						ae.TriggeredDataCollectionRules(),
+					)
+				}
+
+				if ae.Config().LogLevel != tt.expectedLogLevel {
+					t.Errorf(
+						"LogLevel does not match. Expected: %#v Actual: %#v\n",
+						tt.expectedLogLevel,
+						ae.Config().LogLevel,
+					)
+				}
+
+				if ae.Config().IsActive != tt.expectedIsActive {
+					t.Errorf(
+						"IsActive does not match. Expected: %#v Actual: %#v\n",
+						tt.expectedIsActive,
+						ae.Config().IsActive,
+					)
+				}
 			}
 		})
 	}
@@ -192,24 +268,33 @@ func TestResponseEvent_Topic(t *testing.T) {
 	}
 }
 
-func Test_apiEvent_SetLogLevel(t *testing.T) {
-	tests := []struct {
-		name     string
-		logLevel LogLevel
-		want     LogLevel
-	}{
-		{`happy`, Restricted, Restricted},
-		{`sad`, -2, Restricted},
+func Test_apiEvent_SetConfig(t *testing.T) {
+	config := &APIEventConfig{
+		LogLevel: All,
+		IsActive: false,
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ae := &apiEvent{}
-			ae.SetLogLevel(tt.logLevel)
-			actual := ae.LogLevel()
-			if actual != tt.want {
-				t.Errorf("SetLogLevel() = %v, want %v", actual, tt.want)
-			}
-		})
+
+	ae := &apiEvent{}
+	ae.SetConfig(config)
+
+	actual := ae.Config()
+	if actual != config {
+		t.Errorf("SetLogLevel() = %v, want %v", actual, config)
+	}
+}
+
+func Test_apiEvent_SetTriggeredDataCollectionRules(t *testing.T) {
+	expected := []*DataCollectionRule{
+		&DataCollectionRule{
+			Signature: "test",
+		},
+	}
+
+	ae := &apiEvent{}
+	ae.SetTriggeredDataCollectionRules(expected)
+	actual := ae.TriggeredDataCollectionRules()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("SetTriggeredDataCollectionRules() = %v, want %v", actual, expected)
 	}
 }
 
@@ -237,6 +322,7 @@ func TestProxyProvider_onReport(t *testing.T) {
 			if re, ok := tt.e.(*ReportEvent); ok {
 				res := http.Response{Body: testReader(``)}
 				re.SetResponse(&res)
+				re.SetConfig(&APIEventConfig{})
 			}
 			if err := p.onReport(ctx, tt.e); (err != nil) != tt.wantErr {
 				t.Errorf("onReport() error = %v, wantErr %v", err, tt.wantErr)
