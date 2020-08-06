@@ -65,10 +65,10 @@ type ApplicationReport struct {
 // LogReport is the information sent to the Bearer configuration and logs servers,
 // describing the current agent operating environment.
 type LogReport struct {
-	SecretKey      string            `json:"secretKey"`
+	SecretKey      string            `json:"secretKey,omitempty"`
 	AppEnvironment string            `json:"appEnvironment,omitempty"`
 	Application    ApplicationReport `json:"application"`
 	Runtime        RuntimeReport     `json:"runtime"`
 	Agent          AgentReport       `json:"agent"`
-	Logs           []ReportLog       `json:"logs"`
+	Logs           []ReportLog       `json:"logs,omitempty"`
 }
