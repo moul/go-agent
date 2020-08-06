@@ -264,14 +264,17 @@ type Option func(*Config) error
 // the builtin agent defaults, the environment, the Bearer platform configuration
 // and any optional Option values passed by the caller.
 func NewConfig(secretKey string, transport http.RoundTripper, version string, opts ...Option) (*Config, error) {
-	alwaysOn := []Option{
+	alwaysOnBefore := []Option{
 		optionDefaults,
 		optionEnvironment,
 		withSecretKey(secretKey),
+	}
+
+	alwaysOnAfter := []Option{
 		withRemote(transport, version), // Sets Fetcher.
 	}
 
-	options := append(alwaysOn, opts...)
+	options := append(append(alwaysOnBefore, opts...), alwaysOnAfter...)
 	c := &Config{}
 	for _, withOption := range options {
 		err := withOption(c)
