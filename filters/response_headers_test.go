@@ -14,17 +14,19 @@ func TestResponseHeadersFilter_MatchesCall(t *testing.T) {
 		name                   string
 		keyRegexp, valueRegexp *regexp.Regexp
 		header                 http.Header
+		withResponse           bool
 		want                   bool
 	}{
-		{"happy single", reFoo, reBar, http.Header{foo: []string{bar}}, true},
-		{"happy multi", reFoo, reBar, http.Header{foo: []string{foo, bar}}, true},
-		{"happy no key", nil, reBar, http.Header{foo: []string{bar}}, true},
-		{"happy no filter", nil, nil, make(http.Header), true},
-		{"happy no matcher", nil, nil, make(http.Header), true},
-		{"sad no matcher but nil", nil, nil, nil, false},
-		{"sad no matching value", reFoo, reBar, http.Header{foo: []string{foo}}, false},
-		{"sad no matching key", reFoo, reBar, http.Header{bar: []string{bar}}, false},
-		{"sad no params", reFoo, reBar, nil, false},
+		{"happy single", reFoo, reBar, http.Header{foo: []string{bar}}, true, true},
+		{"happy multi", reFoo, reBar, http.Header{foo: []string{foo, bar}}, true, true},
+		{"happy no key", nil, reBar, http.Header{foo: []string{bar}}, true, true},
+		{"happy no filter", nil, nil, make(http.Header), true, true},
+		{"happy no matcher", nil, nil, make(http.Header), true, true},
+		{"sad no matcher but nil", nil, nil, nil, true, false},
+		{"sad no matching value", reFoo, reBar, http.Header{foo: []string{foo}}, true, false},
+		{"sad no matching key", reFoo, reBar, http.Header{bar: []string{bar}}, true, false},
+		{"sad no params", reFoo, reBar, nil, true, false},
+		{"sad no response", reFoo, reBar, nil, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -34,7 +36,10 @@ func TestResponseHeadersFilter_MatchesCall(t *testing.T) {
 				_ = f.SetMatcher(NewKeyValueMatcher(tt.keyRegexp, tt.valueRegexp))
 
 			}
-			e := (&events.EventBase{}).SetResponse(&http.Response{Header: tt.header})
+			e := &events.EventBase{}
+			if tt.withResponse {
+				e.SetResponse(&http.Response{Header: tt.header})
+			}
 			if got := f.MatchesCall(e); got != tt.want {
 				t.Errorf("MatchesCall() = %v, want %v", got, tt.want)
 			}

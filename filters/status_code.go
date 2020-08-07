@@ -25,6 +25,9 @@ func (f *StatusCodeFilter) ensureMatcher() {
 
 // MatchesCall is part of the Filter interface.
 func (f *StatusCodeFilter) MatchesCall(e events.Event) bool {
+	if e.Response() == nil {
+		return false
+	}
 	f.ensureMatcher()
 	return f.Matches(e.Response().StatusCode)
 }
