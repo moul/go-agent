@@ -65,8 +65,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 			be.ResponseBody = BodyUndecodable
 			return fmt.Errorf("decoding JSON response resBody: %w", err)
 		}
-		_, _ = reader.Seek(0, io.SeekStart)
-		be.ResponseSha = ToSha(reader)
+		be.ResponseSha = ToSha(be.ResponseBody)
 		_, _ = reader.Seek(0, io.SeekStart)
 	case FormContentType.MatchString(ct):
 		// Forms are not supported on http.Response so build a placeholder http.Request
@@ -82,7 +81,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 			return fmt.Errorf("decoding HTML form response body: %w", err)
 		}
 		be.ResponseBody = request.Form
-		be.ResponseSha = ToSha(request.Form)
+		be.ResponseSha = `N/A`
 		return nil
 	default:
 		body, err := ioutil.ReadAll(reader)

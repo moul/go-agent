@@ -109,10 +109,10 @@ func ToBytes(x interface{}) ([]byte, error) {
 		return nil, err
 	}
 	mo := protojson.MarshalOptions{
-		Multiline:         false,
-		Indent:            ``,
-		UseEnumNumbers:    true,
-		EmitUnpopulated:   true,
+		Multiline:       false,
+		Indent:          ``,
+		UseEnumNumbers:  true,
+		EmitUnpopulated: true,
 	}
 	j, err := mo.Marshal(hashMessage)
 	if err != nil {
@@ -142,7 +142,7 @@ func ToHash(j interface{}) string {
 func ToSha(j interface{}) string {
 	bytes, err := ToBytes(j)
 	if err != nil {
-		bytes = nil
+		return `N/A`
 	}
 	sha := sha256.Sum256(bytes)
 	return hex.EncodeToString(sha[:])

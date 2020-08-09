@@ -66,8 +66,7 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 			be.RequestBody = BodyUndecodable
 			return fmt.Errorf("decoding JSON request resBody: %w", err)
 		}
-		_, _ = reader.Seek(0, io.SeekStart)
-		be.RequestSha = ToSha(reader)
+		be.RequestSha = ToSha(be.RequestBody)
 		_, _ = reader.Seek(0, io.SeekStart)
 	case FormContentType.MatchString(ct):
 		err := request.ParseForm()
@@ -76,7 +75,7 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 			return fmt.Errorf("decoding HTML form request resBody: %w", err)
 		}
 		be.RequestBody = request.Form.Encode()
-		be.RequestSha = ToSha(request.Form)
+		be.RequestSha = `N/A`
 		return nil
 	}
 
