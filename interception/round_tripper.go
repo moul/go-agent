@@ -82,89 +82,91 @@ func RFCListener(_ context.Context, e events.Event) error {
 }
 
 // stageConnect implements the Bearer TopicConnect stage.
-func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) (*APIEventConfig, error) {
+func (rt *RoundTripper) stageConnect(ctx context.Context, url *url.URL) (APIEvent, error) {
 	e := NewConnectEvent(url)
 	_, err := rt.Dispatch(ctx, e)
 	if err != nil {
-		return e.Config(), err
+		return e, err
 	}
 	if err = ctx.Err(); err != nil {
-		return e.Config(), err
+		return e, err
 	}
-	return e.Config(), nil
+	return e, nil
 }
 
-func (rt *RoundTripper) stageRequest(apiEventConfig *APIEventConfig, request *http.Request) (*APIEventConfig, error) {
-	if apiEventConfig == nil || !apiEventConfig.IsActive {
-		return apiEventConfig, nil
+func (rt *RoundTripper) stageRequest(prevEvent APIEvent, request *http.Request) (APIEvent, error) {
+	if prevEvent == nil || !prevEvent.Config().IsActive {
+		return nil, nil
 	}
 
 	ctx := request.Context()
-	be := &BodiesEvent{}
+	be := &RequestEvent{}
 	be.SetTopic(string(TopicRequest))
-	be.SetConfig(apiEventConfig)
+	be.SetConfig(prevEvent.Config())
+	be.SetTriggeredDataCollectionRules(prevEvent.TriggeredDataCollectionRules())
 	be.SetRequest(request)
 	_, err := rt.Dispatch(ctx, be)
 	if err != nil {
-		return be.Config(), err
+		return be, err
 	}
 	if err = ctx.Err(); err != nil {
-		return be.Config(), err
+		return be, err
 	}
 
-	return be.Config(), nil
+	return be, nil
 }
 
-func (rt *RoundTripper) stageResponse(ctx context.Context, apiEventConfig *APIEventConfig, request *http.Request, response *http.Response, err error) (*APIEventConfig, error) {
-	if apiEventConfig == nil || !apiEventConfig.IsActive {
-		return apiEventConfig, nil
+func (rt *RoundTripper) stageResponse(ctx context.Context, prevEvent APIEvent, request *http.Request, response *http.Response, err error) (APIEvent, error) {
+	if prevEvent == nil || !prevEvent.Config().IsActive {
+		return nil, nil
 	}
 	if err != nil {
-		return apiEventConfig, err
+		return prevEvent, err
 	}
 	e := &ResponseEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
-	e.SetConfig(apiEventConfig)
+	e.SetConfig(prevEvent.Config())
+	e.SetTriggeredDataCollectionRules(prevEvent.TriggeredDataCollectionRules())
 	e.SetRequest(request).SetResponse(response)
 	_, err = rt.Dispatch(ctx, e)
 	if err != nil {
-		return e.Config(), err
+		return e, err
 	}
 	if err = ctx.Err(); err != nil {
-		return e.Config(), err
+		return e, err
 	}
 
-	return e.Config(), nil
+	return e, nil
 }
 
-func (rt *RoundTripper) stageBodies(ctx context.Context, apiEventConfig *APIEventConfig, request *http.Request, response *http.Response, err error) (*APIEventConfig, *ReportEvent) {
-	if apiEventConfig == nil || !apiEventConfig.IsActive {
-		return apiEventConfig, nil
+func (rt *RoundTripper) stageBodies(ctx context.Context, prevEvent APIEvent, request *http.Request, response *http.Response, err error) *ReportEvent {
+	if prevEvent == nil || !prevEvent.Config().IsActive {
+		return nil
 	}
-	rev := NewReportEvent(apiEventConfig.LogLevel, proxy.StageBodies, err)
+	rev := NewReportEvent(proxy.StageBodies, err)
 	e := &BodiesEvent{apiEvent: apiEvent{EventBase: events.EventBase{Error: err}}}
 	e.SetTopic(string(TopicBodies))
 	rev.BodiesEvent = e
-	e.SetConfig(apiEventConfig)
-	rev.SetConfig(apiEventConfig)
+	rev.SetConfig(prevEvent.Config())
+	rev.SetTriggeredDataCollectionRules(prevEvent.TriggeredDataCollectionRules())
 	rev.SetRequest(request).SetResponse(response)
 	if err != nil {
 		rev.Error = err
-		return e.Config(), rev
+		return rev
 	}
 	_, rev.Error = rt.Dispatch(ctx, rev.BodiesEvent)
 	if rev.Error != nil {
-		return e.Config(), rev
+		return rev
 	}
 	if rev.Error = ctx.Err(); rev.Error != nil {
-		return e.Config(), rev
+		return rev
 	}
 	rev.T1 = rev.readTimestamp
-	return e.Config(), rev
+	return rev
 }
 
 // RoundTrip implements the http.RoundTripper interface.
 func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	var apiEventConfig *APIEventConfig
+	var prevEvent APIEvent
 	var err error
 	var rev *ReportEvent
 	var (
@@ -176,7 +178,7 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	ctx := request.Context()
 
 	defer func() {
-		if rev == nil {
+		if rev == nil || !rev.Config().IsActive {
 			return
 		}
 		rev.T0 = t0
@@ -185,20 +187,22 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 			t1 = time.Now()
 		}
 		rev.T1 = t1
-		if err == nil && apiEventConfig != nil && apiEventConfig.IsActive {
-			_, _ = rt.Dispatch(ctx, rev)
-		}
+		_, _ = rt.Dispatch(ctx, rev)
 	}()
 
-	if apiEventConfig, err = rt.stageConnect(ctx, request.URL); err != nil {
-		rev = NewReportEvent(apiEventConfig.LogLevel, proxy.StageConnect, err)
+	if prevEvent, err = rt.stageConnect(ctx, request.URL); err != nil {
+		rev = NewReportEvent(proxy.StageConnect, err)
 		rev.SetRequest(request)
+		rev.SetConfig(prevEvent.Config())
+		rev.SetTriggeredDataCollectionRules(prevEvent.TriggeredDataCollectionRules())
 		return nil, err
 	}
 
-	if apiEventConfig, err = rt.stageRequest(apiEventConfig, request); err != nil {
-		rev = NewReportEvent(apiEventConfig.LogLevel, proxy.StageRequest, err)
+	if prevEvent, err = rt.stageRequest(prevEvent, request); err != nil {
+		rev = NewReportEvent(proxy.StageRequest, err)
 		rev.SetRequest(request)
+		rev.SetConfig(prevEvent.Config())
+		rev.SetTriggeredDataCollectionRules(prevEvent.TriggeredDataCollectionRules())
 		return nil, err
 	}
 
@@ -207,14 +211,20 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	response, rtErr := rt.Underlying.RoundTrip(request)
 	t1 = time.Now()
 
-	if apiEventConfig, err = rt.stageResponse(ctx, apiEventConfig, request, response, rtErr); err != nil {
-		rev = NewReportEvent(apiEventConfig.LogLevel, proxy.StageResponse, err)
+	if prevEvent, err = rt.stageResponse(ctx, prevEvent, request, response, rtErr); err != nil {
+		stage := proxy.StageResponse
+		if response == nil {
+			stage = proxy.StageRequest
+		}
+		rev = NewReportEvent(stage, err)
 		rev.SetRequest(request).SetResponse(response)
+		rev.SetConfig(prevEvent.Config())
+		rev.SetTriggeredDataCollectionRules(prevEvent.TriggeredDataCollectionRules())
 		return rev.Response(), err
 	}
 
 	// No need to check logLevel here: if we reached that point, logLevel is All.
-	apiEventConfig, rev = rt.stageBodies(ctx, apiEventConfig, request, response, err)
+	rev = rt.stageBodies(ctx, prevEvent, request, response, err)
 	if rev == nil {
 		return response, rtErr
 	}

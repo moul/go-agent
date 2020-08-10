@@ -219,7 +219,7 @@ func TestReportEvent_Topic(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			re := NewReportEvent(Restricted, proxy.StageUndefined, nil)
+			re := NewReportEvent(proxy.StageUndefined, nil)
 			re.SetTopic(tt.topic)
 			if got := re.Topic(); got != TopicReport {
 				t.Errorf("Topic() = %v, want %v", got, TopicReport)
@@ -310,7 +310,7 @@ func TestProxyProvider_onReport(t *testing.T) {
 		e       events.Event
 		wantErr bool
 	}{
-		{`happy`, &stubSender, NewReportEvent(All, proxy.StageConnect, nil), false},
+		{`happy`, &stubSender, NewReportEvent(proxy.StageConnect, nil), false},
 		{`sad bad event`, &stubSender, &events.EventBase{}, true},
 	}
 	ctx := context.Background()

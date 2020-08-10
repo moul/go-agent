@@ -324,11 +324,11 @@ type ReportLog struct {
 
 	// Common, except for Detected level.
 
-	StartedAt                 int                        `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
-	EndedAt                   int                        `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
-	Type                      string                     `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
-	Stage                     string                     `json:"stageType,omitempty"`
-	ActiveDataCollectionRules []ReportDataCollectionRule `json:"activeDataCollectionRules,omitempty"` // More compact than sending the complete rule.
+	StartedAt                 int                         `json:"startedAt,omitempty"` // Unix timestamp UTC milliseconds
+	EndedAt                   int                         `json:"endedAt,omitempty"`   // Unix timestamp UTC milliseconds
+	Type                      string                      `json:"type,omitempty"`      // REQUEST_END on success, REQUEST_ERROR on connection errors
+	Stage                     string                      `json:"stageType,omitempty"`
+	ActiveDataCollectionRules *[]ReportDataCollectionRule `json:"activeDataCollectionRules,omitempty"` // More compact than sending the complete rule.
 
 	// filters.StageConnect
 

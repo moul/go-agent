@@ -130,6 +130,9 @@ func (p SanitizationProvider) SanitizeQueryAndPaths(_ context.Context, e events.
 	e.SetRequest(req)
 
 	response := e.Response()
+	if response == nil {
+		return nil
+	}
 	// e.Response values contain a copy of the Request, which needs to be
 	// sanitized too. We just did it if the Request object was reused.
 	if response.Request == request {
@@ -157,6 +160,9 @@ func (p SanitizationProvider) SanitizeRequestHeaders(_ context.Context, e events
 	e.SetRequest(req)
 
 	res := e.Response()
+	if res == nil {
+		return nil
+	}
 	resReq := res.Request
 	if resReq == req {
 		return nil
@@ -170,6 +176,9 @@ func (p SanitizationProvider) SanitizeRequestHeaders(_ context.Context, e events
 // SanitizeResponseHeaders sanitizes Response headers and trailers.
 func (p SanitizationProvider) SanitizeResponseHeaders(_ context.Context, e events.Event) error {
 	res := e.Response()
+	if res == nil {
+		return nil
+	}
 	res.Header = p.sanitizeHeaders(res.Header)
 	e.SetResponse(res)
 	return nil

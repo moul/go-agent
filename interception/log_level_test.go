@@ -46,7 +46,7 @@ func TestLogLevel_addAllInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := NewReportEvent(All, proxy.StageBodies, tt.err)
+			e := NewReportEvent(proxy.StageBodies, tt.err)
 			req, _ := http.NewRequest(http.MethodGet, defaultTestURL, nil)
 			req.Header = tt.reqHeader
 			e.SetRequest(req)

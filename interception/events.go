@@ -161,8 +161,8 @@ func (ReportEvent) Topic() events.Topic {
 	return TopicReport
 }
 
-// NewReportEvent builds a ReportEvent, empty but for logLevel, stage, and error.
-func NewReportEvent(logLevel LogLevel, stage proxy.Stage, err error) *ReportEvent {
+// NewReportEvent builds a ReportEvent, empty but for stage, and error.
+func NewReportEvent(stage proxy.Stage, err error) *ReportEvent {
 	be := &BodiesEvent{
 		apiEvent: apiEvent{
 			EventBase:                    events.EventBase{Error: err},

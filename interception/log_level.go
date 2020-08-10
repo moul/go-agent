@@ -102,6 +102,7 @@ func (ll *LogLevel) addDetectedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 func (ll *LogLevel) addRestrictedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 	request := re.Request()
 	response := re.Response()
+	triggeredRules := PrepareTriggeredRulesForReport(re.TriggeredDataCollectionRules())
 	u := request.URL
 
 	err := re.Error
@@ -114,7 +115,7 @@ func (ll *LogLevel) addRestrictedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 	rl.StartedAt = int(re.T0.UnixNano() / 1E6)
 	rl.EndedAt = int(re.T1.UnixNano() / 1E6)
 	rl.Stage = string(re.Stage)
-	rl.ActiveDataCollectionRules = PrepareTriggeredRulesForReport(re.TriggeredDataCollectionRules())
+	rl.ActiveDataCollectionRules = &triggeredRules
 	rl.Path = u.Path
 	rl.Method = request.Method
 	rl.URL = u.String()
@@ -159,6 +160,10 @@ func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
 				rl.RequestBody = string(body)
 			}
 		}
+	}
+
+	if response == nil {
+		return
 	}
 
 	rl.ResponseHeaders = response.Header
