@@ -144,7 +144,6 @@ func (ResponseEvent) Topic() events.Topic {
 // BodiesEvent is the type of events dispatched at the TopicBodies stage.
 type BodiesEvent struct {
 	apiEvent
-	readTimestamp             time.Time
 	RequestBody, ResponseBody interface{}
 	RequestSha, ResponseSha   string
 }

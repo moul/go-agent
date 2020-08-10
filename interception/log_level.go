@@ -152,14 +152,22 @@ func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
 				rl.RequestBody = s
 			}
 		} else {
-			body, err := json.Marshal(re.RequestBody)
-			if err != nil {
-				rl.Type = proxy.Error
-				rl.RequestBody = BodyUndecodable
+			if s, ok := re.RequestBody.(string); ok {
+				rl.RequestBody = s
 			} else {
-				rl.RequestBody = string(body)
+				body, err := json.Marshal(re.RequestBody)
+				if err != nil {
+					rl.Type = proxy.Error
+					rl.RequestBody = BodyUndecodable
+				} else {
+					rl.RequestBody = string(body)
+				}
 			}
 		}
+	}
+
+	if rl.RequestBody == `` {
+		rl.RequestBody = `(no body)`
 	}
 
 	if response == nil {
@@ -180,13 +188,21 @@ func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
 				return
 			}
 		}
-		body, err := json.Marshal(re.ResponseBody)
-		if err != nil {
-			rl.Type = proxy.Error
-			rl.ResponseBody = BodyUndecodable
+		if s, ok := re.ResponseBody.(string); ok {
+			rl.ResponseBody = s
 		} else {
-			rl.ResponseBody = string(body)
+			body, err := json.Marshal(re.ResponseBody)
+			if err != nil {
+				rl.Type = proxy.Error
+				rl.ResponseBody = BodyUndecodable
+			} else {
+				rl.ResponseBody = string(body)
+			}
 		}
+	}
+
+	if rl.ResponseBody == `` {
+		rl.ResponseBody = `(no body)`
 	}
 }
 

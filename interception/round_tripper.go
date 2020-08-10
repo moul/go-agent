@@ -160,7 +160,6 @@ func (rt *RoundTripper) stageBodies(ctx context.Context, prevEvent APIEvent, req
 	if rev.Error = ctx.Err(); rev.Error != nil {
 		return rev
 	}
-	rev.T1 = rev.readTimestamp
 	return rev
 }
 
@@ -206,10 +205,18 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		return nil, err
 	}
 
+	if request.Body != nil {
+		request.Body = NewBodyReadCloser(request.Body, MaximumBodySize+1)
+	}
+
 	// Perform and time the underlying API call, without resBody capture.
 	t0 = time.Now()
 	response, rtErr := rt.Underlying.RoundTrip(request)
 	t1 = time.Now()
+
+	if response != nil && response.Body != nil {
+		response.Body = NewBodyReadCloser(response.Body, MaximumBodySize+1)
+	}
 
 	if prevEvent, err = rt.stageResponse(ctx, prevEvent, request, response, rtErr); err != nil {
 		stage := proxy.StageResponse
@@ -223,7 +230,6 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 		return rev.Response(), err
 	}
 
-	// No need to check logLevel here: if we reached that point, logLevel is All.
 	rev = rt.stageBodies(ctx, prevEvent, request, response, err)
 	if rev == nil {
 		return response, rtErr

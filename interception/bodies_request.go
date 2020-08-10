@@ -1,29 +1,16 @@
 package interception
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/proxy"
 )
-
-// RequestBodyLoader is an events.Listener performing eager resBody loading on API
-// requests, to ensure data collection by the agent.
-func (p BodyParsingProvider) RequestBodyLoader(_ context.Context, e events.Event) error {
-	be, ok := e.(*BodiesEvent)
-	if !ok {
-		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
-	}
-	request := be.Request()
-	request.Body, be.Error = p.loadBody(request.Body)
-	be.SetRequest(request)
-	be.readTimestamp = time.Now()
-	return nil
-}
 
 // RequestBodyParser is an events.Listener performing eager resBody loading on API
 // requests, to perform sanitization and bandwidth reduction.
@@ -38,10 +25,18 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 		be.RequestBody = ``
 		return nil
 	}
-	reader, ok := body.(*MeasuredReader)
+	bodyReader, ok := body.(*BodyReadCloser)
 	if !ok {
-		return fmt.Errorf(`topic Body to have a Len(), got %T`, body)
+		be.RequestBody = BodyUndecodable
+		return errors.New(`expected Body to be a BodyReadCloser`)
 	}
+
+	bodyBytes, err := bodyReader.Peek()
+	if err != nil && err != io.EOF {
+		be.RequestBody = BodyUndecodable
+		return fmt.Errorf("error peeking body: %w", err)
+	}
+	reader := bytes.NewReader(bodyBytes)
 	if reader.Len() == 0 {
 		be.RequestBody = ``
 		return nil
@@ -58,23 +53,18 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 	switch {
 	case JSONContentType.MatchString(ct):
 		d := json.NewDecoder(reader)
-		if be.RequestBody == nil {
-			be.RequestBody = new(interface{})
-		}
-		err := d.Decode(be.RequestBody)
+		err := d.Decode(&be.RequestBody)
 		if err != nil {
 			be.RequestBody = BodyUndecodable
-			return fmt.Errorf("decoding JSON request resBody: %w", err)
+			return fmt.Errorf("decoding JSON request reqBody: %w", err)
 		}
 		be.RequestSha = ToSha(be.RequestBody)
-		_, _ = reader.Seek(0, io.SeekStart)
 	case FormContentType.MatchString(ct):
-		err := request.ParseForm()
+		be.RequestBody, err = ParseFormData(reader)
 		if err != nil {
 			be.RequestBody = BodyUndecodable
-			return fmt.Errorf("decoding HTML form request resBody: %w", err)
+			return fmt.Errorf("decoding HTML form request reqBody: %w", err)
 		}
-		be.RequestBody = request.Form.Encode()
 		be.RequestSha = `N/A`
 		return nil
 	}

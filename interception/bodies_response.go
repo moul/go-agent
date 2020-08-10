@@ -1,31 +1,17 @@
 package interception
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"time"
 
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/proxy"
 )
-
-// ResponseBodyLoader is an events.Listener performing eager resBody loading on API
-// responses, to ensure data collection by the agent.
-func (p BodyParsingProvider) ResponseBodyLoader(_ context.Context, e events.Event) error {
-	be, ok := e.(*BodiesEvent)
-	if !ok {
-		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
-	}
-	response := be.Response()
-	response.Body, be.Error = p.loadBody(response.Body)
-	be.SetResponse(response)
-	be.readTimestamp = time.Now()
-	return nil
-}
 
 // ResponseBodyParser is an events.Listener performing eager resBody loading on API
 // responses, to perform sanitization and bandwidth reduction.
@@ -34,16 +20,26 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 	if !ok {
 		return fmt.Errorf(`topic BodiesEvent, got %T`, e)
 	}
+
 	response := e.Response()
-	var body io.Reader = response.Body
+	body := response.Body
 	if body == nil {
 		be.ResponseBody = ``
 		return nil
 	}
-	reader, ok := body.(*MeasuredReader)
+
+	bodyReader, ok := body.(*BodyReadCloser)
 	if !ok {
-		return fmt.Errorf(`topic Body to have a Len(), got %T`, body)
+		be.RequestBody = BodyUndecodable
+		return errors.New(`expected Body to be a BodyReadCloser`)
 	}
+
+	bodyBytes, err := bodyReader.Peek()
+	if err != nil && err != io.EOF {
+		be.RequestBody = BodyUndecodable
+		return fmt.Errorf("error peeking body: %w", err)
+	}
+	reader := bytes.NewReader(bodyBytes)
 	if reader.Len() == 0 {
 		be.ResponseBody = ``
 		return nil
@@ -66,21 +62,12 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 			return fmt.Errorf("decoding JSON response resBody: %w", err)
 		}
 		be.ResponseSha = ToSha(be.ResponseBody)
-		_, _ = reader.Seek(0, io.SeekStart)
 	case FormContentType.MatchString(ct):
-		// Forms are not supported on http.Response so build a placeholder http.Request
-		// to hold the data and apply standard parsing.
-		pos, _ := reader.Seek(0, io.SeekCurrent)
-		request := &http.Request{Body: reader, Header: make(http.Header)}
-		request.Header.Set(proxy.ContentTypeHeader, proxy.ContentTypeSimpleForm)
-		_, _ = reader.Seek(pos, io.SeekStart)
-
-		err := request.ParseForm()
+		be.ResponseBody, err = ParseFormData(reader)
 		if err != nil {
 			be.ResponseBody = BodyUndecodable
 			return fmt.Errorf("decoding HTML form response body: %w", err)
 		}
-		be.ResponseBody = request.Form
 		be.ResponseSha = `N/A`
 		return nil
 	default:
