@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/bearer/go-agent/events"
 	"github.com/bearer/go-agent/proxy"
@@ -71,12 +70,7 @@ func (p BodyParsingProvider) ResponseBodyParser(_ context.Context, e events.Even
 		be.ResponseSha = `N/A`
 		return nil
 	default:
-		body, err := ioutil.ReadAll(reader)
-		if err != nil {
-			be.ResponseBody = BodyUndecodable
-			return nil
-		}
-		be.ResponseBody = body
+		be.ResponseBody = string(bodyBytes)
 	}
 
 	return nil

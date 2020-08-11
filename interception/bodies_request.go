@@ -67,6 +67,8 @@ func (BodyParsingProvider) RequestBodyParser(_ context.Context, e events.Event) 
 		}
 		be.RequestSha = `N/A`
 		return nil
+	default:
+		be.RequestBody = string(bodyBytes)
 	}
 
 	return nil

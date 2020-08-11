@@ -5,6 +5,7 @@ package interception
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -134,39 +135,12 @@ func (ll *LogLevel) addRestrictedInfo(rl *proxy.ReportLog, re *ReportEvent) {
 
 // addAllInfo adds to the report the info reported at the "ALL" log level.
 func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
-	request, response, err := re.Request(), re.Response(), re.Error
+	request, response := re.Request(), re.Response()
 
 	rl.RequestHeaders = request.Header
 	rl.RequestBodyPayloadSHA = re.RequestSha
-	if err != nil {
-		rl.Type = proxy.Error
-		rl.RequestBody = ``
-	} else {
-		ct := rl.RequestHeaders.Get(proxy.ContentTypeHeader)
-		if ct == proxy.ContentTypeSimpleForm {
-			s, ok := re.RequestBody.(string)
-			if !ok {
-				rl.Type = proxy.Error
-				rl.RequestBody = BodyUndecodable
-			} else {
-				rl.RequestBody = s
-			}
-		} else {
-			if s, ok := re.RequestBody.(string); ok {
-				rl.RequestBody = s
-			} else {
-				body, err := json.Marshal(re.RequestBody)
-				if err != nil {
-					rl.Type = proxy.Error
-					rl.RequestBody = BodyUndecodable
-				} else {
-					rl.RequestBody = string(body)
-				}
-			}
-		}
-	}
-
-	if rl.RequestBody == `` {
+	rl.RequestBody = serializeBody(rl.RequestHeaders, re.RequestBody)
+	if re.RequestBody != nil && rl.RequestBody == `` {
 		rl.RequestBody = `(no body)`
 	}
 
@@ -176,32 +150,8 @@ func (ll *LogLevel) addAllInfo(rl *proxy.ReportLog, re *ReportEvent) {
 
 	rl.ResponseHeaders = response.Header
 	rl.ResponseBodyPayloadSHA = re.ResponseSha
-	if err != nil {
-		rl.Type = proxy.Error
-		rl.ResponseBody = ``
-	} else {
-		defer response.Body.Close()
-		ct := rl.ResponseHeaders.Get(proxy.ContentTypeHeader)
-		if StringContentType.MatchString(ct) {
-			if sl, ok := re.ResponseBody.([]byte); ok {
-				rl.ResponseBody = string(sl)
-				return
-			}
-		}
-		if s, ok := re.ResponseBody.(string); ok {
-			rl.ResponseBody = s
-		} else {
-			body, err := json.Marshal(re.ResponseBody)
-			if err != nil {
-				rl.Type = proxy.Error
-				rl.ResponseBody = BodyUndecodable
-			} else {
-				rl.ResponseBody = string(body)
-			}
-		}
-	}
-
-	if rl.ResponseBody == `` {
+	rl.ResponseBody = serializeBody(rl.ResponseHeaders, re.ResponseBody)
+	if re.ResponseBody != nil && rl.ResponseBody == `` {
 		rl.ResponseBody = `(no body)`
 	}
 }
@@ -224,4 +174,26 @@ func (ll *LogLevel) Prepare(re *ReportEvent) proxy.ReportLog {
 		ll.addAllInfo(&rl, re)
 	}
 	return rl
+}
+
+func serializeBody(headers http.Header, body interface{}) string {
+	if body == nil {
+		return ``
+	}
+
+	ct := headers.Get(proxy.ContentTypeHeader)
+	// It will be a string if it's a text body or if we failed to parse it
+	if s, ok := body.(string); ok {
+		return s
+	} else if ct == proxy.ContentTypeSimpleForm {
+		if values, ok := body.(map[string][]string); ok {
+			return url.Values(values).Encode()
+		}
+	} else { // Everything else must be JSON
+		if json, err := json.Marshal(body); err == nil {
+			return string(json)
+		}
+	}
+
+	return BodyUndecodable
 }
