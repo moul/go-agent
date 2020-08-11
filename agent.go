@@ -28,7 +28,7 @@ const (
 	SecretKeyName = `BEARER_SECRET_KEY`
 
 	// Version is the semantic agent version.
-	Version = `0.0.1`
+	Version = `1.0.0`
 )
 
 type transportMap map[http.RoundTripper]http.RoundTripper
