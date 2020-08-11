@@ -5,10 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/bearer/go-agent/examples"
-	"github.com/bearer/go-agent/proxy"
 
 	bearer "github.com/bearer/go-agent"
 )
@@ -23,19 +21,17 @@ func main() {
 	agent := bearer.New(secretKey)
 	defer agent.Close()
 
-	// Step 2: prepare your custom transport, decorating it with the Bearer agent.
-	var baseTransport = http.DefaultTransport.(*http.Transport)
-
-	// Say your enterprise proxy needs a specific CONNECT header.
+	// Step 2: prepare your custom transport.
+	// eg. your enterprise proxy needs a specific CONNECT header
+	baseTransport := &http.Transport{}
 	baseTransport.ProxyConnectHeader = http.Header{"ACME_ID": []string{"some secret"}}
+
+	// Step 3: decorate your transport with Bearer.
 	transport := agent.Decorate(baseTransport)
 
-	// Step 3: use your client as usual.
+	// Step 4: use your client as usual.
 	client := http.Client{Transport: transport}
-	res, err := client.Do(&http.Request{
-		Method: http.MethodGet,
-		URL:    proxy.MustParseURL(examples.APIURL),
-	})
+	res, err := client.Get(examples.APIURL)
 	if err != nil {
 		log.Fatalf("calling %s: %v", examples.APIURL, err)
 	}
@@ -47,5 +43,4 @@ func main() {
 	}
 
 	examples.ShowGithubOrg(body)
-	time.Sleep(6 * time.Second)
 }

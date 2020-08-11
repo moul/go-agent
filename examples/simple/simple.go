@@ -13,22 +13,21 @@ import (
 )
 
 func main() {
-	// Step 1: initialize Bearer.
-	//
-	// agent.Init(secretKey) returns a closer function, which never fails.
-	// defer-ing it ensures it will run in all normal function return cases, as
-	// well as panics. It will only fail to return if os.Exit() is called, as
-	// that function exits the program without calling any deferred code.
-	//
-	// This single step sets up Bearer decoration for the DefaultClient, allowing
-	// any API call using it to be monitored.
-	//
-	// Note that, since the Go runtime httptest uses manually defined clients,
-	// your running HTTP tests will not trigger extra monitoring calls to Bearer.
 	secretKey := os.Getenv(bearer.SecretKeyName)
 	if len(secretKey) == 0 {
 		log.Fatalf(`Bearer needs a %s environment variable`, bearer.SecretKeyName)
 	}
+
+	// Step 1: initialize Bearer.
+	//
+	// Creating an agent sets up Bearer decoration for the DefaultClient,
+	// allowing any API call using it to be monitored.
+	//
+	// The Close method can be used to cleanly shut down the agent and wait for
+	// any outstanding API calls to be reported
+	//
+	// Note that, since the Go runtime httptest uses manually defined clients,
+	// your running HTTP tests will not trigger extra monitoring calls to Bearer.
 	agent := bearer.New(secretKey)
 	defer agent.Close()
 

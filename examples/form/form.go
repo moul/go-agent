@@ -8,33 +8,21 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 
 	"github.com/bearer/go-agent/examples"
-	"github.com/bearer/go-agent/proxy"
 
 	bearer "github.com/bearer/go-agent"
 )
 
 func main() {
-	// Step 1: initialize Bearer.
-	//
-	// agent.Init(secretKey) returns a closer function, which never fails.
-	// defer-ing it ensures it will run in all normal function return cases, as
-	// well as panics. It will only fail to return if os.Exit() is called, as
-	// that function exits the program without calling any deferred code.
-	//
-	// This single step sets up Bearer decoration for the DefaultClient, allowing
-	// any API call using it to be monitored.
-	//
-	// Note that, since the Go runtime httptest uses manually defined clients,
-	// your running HTTP tests will not trigger extra monitoring calls to Bearer.
 	secretKey := os.Getenv(bearer.SecretKeyName)
 	if len(secretKey) == 0 {
 		log.Fatalf(`Bearer needs a %s environment variable`, bearer.SecretKeyName)
 	}
+
+	// Step 1: initialize Bearer.
 	agent := bearer.New(secretKey)
 	defer agent.Close()
 
@@ -62,11 +50,9 @@ func main() {
 		log.Fatalf("reading API response: %v", err)
 	}
 
-	if regexp.MustCompile(`^(?i)` + proxy.FullContentTypeHTML + `$`).
-		MatchString(res.Header.Get(proxy.ContentTypeHeader)) {
+	if regexp.MustCompile(`^(?i)text/html; charset=utf-8$`).MatchString(res.Header.Get(`Content-Type`)) {
 		fmt.Println(string(body))
 	} else {
 		spew.Dump(body)
 	}
-	time.Sleep(700 * time.Millisecond)
 }

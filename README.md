@@ -35,33 +35,33 @@ transport, and use it in your custom-created HTTP clients:
 
 ```go
 package main
+
 import (
   "net/http"
   "os"
-
-  "github.com/bearer/go-agent/proxy"
+  "time"
 
   bearer "github.com/bearer/go-agent"
 )
-
 
 func main() {
   // Step 1: initialize Bearer.
   agent := bearer.New(os.Getenv(bearer.SecretKeyName))
   defer agent.Close()
 
-  // Step 2: prepare your custom transport, decorating it with the Bearer agent.
-  var baseTransport = http.DefaultTransport.(*http.Transport)
+  // Step 2: prepare your custom transport.
+  baseTransport := &http.Transport{
+    TLSHandshakeTimeout: 5 * time.Second,
+  }
 
-  // Say your enterprise proxy needs a specific CONNECT header.
-  baseTransport.ProxyConnectHeader = http.Header{"ACME_ID": []string{"some secret"}}
+  // Step 3: decorate your transport with the Bearer agent.
   transport := agent.Decorate(baseTransport)
 
-  // Step 3: use your client as usual.
+  // Step 4: use your client as usual.
   client := http.Client{Transport: transport}
-  response, err := client.Do(&http.Request{URL: proxy.MustParseURL(`http://someurl.tld/path`)})
+  response, err := client.Get(`https://some.example.com/path`)
 
-    // ...use the API response and error as usual
+  // ...use the API response and error as usual
 }
 ```
 
