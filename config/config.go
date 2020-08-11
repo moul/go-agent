@@ -40,7 +40,7 @@ func IsSecretKeyWellFormed(secretKey string) bool {
 	// SecretKeyRegex is the format of Bearer secret keys.
 	// It is used to verify the shape of submitted secret keys, before they are
 	// sent over to Bearer for value validation.
-	SecretKeyRegex := regexp.MustCompile(`^app_[[:xdigit:]]{50}$`)
+	SecretKeyRegex := regexp.MustCompile(`^app_`)
 
 	return SecretKeyRegex.MatchString(secretKey)
 }
