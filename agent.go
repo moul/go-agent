@@ -160,8 +160,15 @@ func (a *Agent) setError(err error) {
 
 // Close shuts down the agent
 func (a *Agent) Close() error {
+	if a.config.IsDisabled() {
+		return nil
+	}
+
+	a.LogTrace("Bearer agent stopping", nil)
+
 	count := uint(0)
 	if a.sender != nil {
+		a.sender.Stop()
 		count = a.sender.Counter
 	}
 

@@ -301,7 +301,6 @@ func Test_apiEvent_SetTriggeredDataCollectionRules(t *testing.T) {
 func TestProxyProvider_onReport(t *testing.T) {
 	stubLogger := zerolog.New(ioutil.Discard)
 	stubSender := proxy.Sender{
-		FanIn:  nil,
 		Logger: &stubLogger,
 	}
 	tests := []struct {
@@ -313,6 +312,7 @@ func TestProxyProvider_onReport(t *testing.T) {
 		{`happy`, &stubSender, NewReportEvent(proxy.StageConnect, nil), false},
 		{`sad bad event`, &stubSender, &events.EventBase{}, true},
 	}
+	stubSender.FanIn = make(chan proxy.ReportLog, len(tests))
 	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

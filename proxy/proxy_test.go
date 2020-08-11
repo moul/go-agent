@@ -75,34 +75,6 @@ func TestMustParseURL(t *testing.T) {
 	}
 }
 
-func TestSender_Stop(t *testing.T) {
-	tests := []struct {
-		name     string
-		Done     chan bool
-		FanIn    chan proxy.ReportLog
-		wantDone bool
-	}{
-		{`happy`, make(chan bool, 1), make(chan proxy.ReportLog, proxy.FanInBacklog), true},
-		{`sad`, func() chan bool { ch := make(chan bool, 2); ch <- false; return ch }(),
-			make(chan proxy.ReportLog, proxy.FanInBacklog), false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sender, _ := makeTestSender()
-			sender.Done = tt.Done
-			go sender.Start()
-			sender.Stop()
-			done := <-sender.Done
-			if done != tt.wantDone {
-				t.Errorf(`done: got %t, expected %t`, done, tt.wantDone)
-			}
-			if len(sender.FanIn) != 0 {
-				t.Errorf(`fanIn: got %d/%d channel, want nil`, len(sender.FanIn), cap(sender.FanIn))
-			}
-		})
-	}
-}
-
 func TestNewSender(t *testing.T) {
 	s := proxy.NewSender(proxy.AckBacklog, `http://localhost`, agent.Version,
 		agent.ExampleWellFormedInvalidKey, `test`, nil, nil)
@@ -112,52 +84,37 @@ func TestNewSender(t *testing.T) {
 }
 
 func TestSender_Send(t *testing.T) {
-	tests := []struct {
-		name  string
-		FanIn chan proxy.ReportLog
-		log   proxy.ReportLog
-	}{
-		{`happy`, make(chan proxy.ReportLog, 1), proxy.ReportLog{LogLevel: `foo`}},
-		{`sad`, nil, proxy.ReportLog{}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sender, builder := makeTestSender()
-			sender.FanIn = tt.FanIn
-			sender.Send(tt.log)
-			if tt.FanIn == nil {
-				if len(builder.String()) == 0 {
-					t.Error(`send: expected warning, got nothing`)
-				}
-				return
-			}
-			log := <-sender.FanIn
-			if log.LogLevel != tt.log.LogLevel {
-				t.Errorf(`reportLogLevel: got %sender, expected %sender`, log.LogLevel, tt.log.LogLevel)
-			}
-		})
-	}
-}
+	log := proxy.ReportLog{LogLevel: `foo`}
+	sender, builder := makeTestSender()
 
-func TestSender_StartStraightFinish(t *testing.T) {
-	sb := &strings.Builder{}
-	z := zerolog.New(sb)
-	s := proxy.Sender{
-		Done:   make(chan bool, 1),
-		Finish: make(chan bool, 1),
-		FanIn:  make(chan proxy.ReportLog),
-		Logger: &z,
+	// Normal operation
+
+	sender.Send(log)
+	if len(builder.String()) != 0 {
+		t.Errorf(`unexpected warning: %s`, builder.String())
 	}
-	s.Stop()
-	s.Start()
-	msgs := strings.Split(sb.String(), "\n")
-	// Logger end each message with a \n, so N log entries will split to N+1
-	// strings, the last one being empty.
-	if len(msgs) != 2 {
-		t.Errorf("expected a single log entry, got %d", len(msgs)-1)
+
+	select {
+	case sentLog := <-sender.FanIn:
+		if !reflect.DeepEqual(sentLog, log) {
+			t.Error(`received log is not the one that was sent`)
+		}
+	default:
+		t.Error(`log was not sent`)
 	}
-	if len(s.Done) != 1 {
-		t.Errorf("expected a single Done entry, got %d", len(s.Done))
+
+	// Draining phase
+
+	close(sender.Draining)
+	sender.Send(log)
+	if len(builder.String()) == 0 {
+		t.Errorf(`expected warning but got none`)
+	}
+
+	select {
+	case <-sender.FanIn:
+		t.Error(`log was sent but should have been dropped`)
+	default:
 	}
 }
 

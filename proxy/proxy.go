@@ -23,6 +23,8 @@ const (
 	QuietLoopPause = 10 * time.Millisecond
 	// FanInBacklog is the capacity of the fan-in log write channel
 	FanInBacklog = 100
+	// DrainingTimeout is how long to wait for draining before giving up
+	DrainingTimeout = 20 * time.Second
 
 	// End is the ReportLog Type for successful API calls.
 	End = `REQUEST_END`
@@ -67,11 +69,19 @@ func MustParseURL(rawURL string) *url.URL {
 type Sender struct {
 	// Finish is used to transmit the app termination request to the background
 	// sending loop.
-	Finish chan bool
+	Finish chan struct{}
 
-	// Done is used by the background sending loop to confirm it is done, allowing
-	// the agent.Close function to await clean Sender flush if it wishes.
-	Done chan bool
+	// done is used by the background sending loop to confirm it is done, allowing
+	// Stop to wait for a clean exit
+	Done chan struct{}
+
+	// ForceFinish is a channel that is closed when we no longer wish to wait for
+	// draining to complete.
+	ForceFinish chan struct{}
+
+	// Draining is a channel that is closed when the sender is finishing. It is
+	// used to stop Send enqueuing further logs.
+	Draining chan struct{}
 
 	// FanIn receives the ReportLog elements to send from all the goroutines
 	// created on API calls termination, serializing them to the background sending loop.
@@ -121,10 +131,16 @@ type Sender struct {
 }
 
 // Stop notifies the background sending loop that the application is shutting
-// down. Any ReportLog elements send after that call will be lost and unreported.
+// down. It will then block waiting for any remaining reports to be sent. If
+// the DrainingTimeout is reached then it will stop sending any further logs.
 func (s *Sender) Stop() {
-	s.Finish <- true
-	close(s.FanIn)
+	close(s.Finish)
+	select {
+	case <-s.Done:
+	case <-time.After(DrainingTimeout):
+		close(s.ForceFinish)
+	}
+	<-s.Done
 }
 
 // NewSender builds a ready-to-user
@@ -133,10 +149,12 @@ func NewSender(
 	transport http.RoundTripper, logger *zerolog.Logger,
 ) *Sender {
 	s := Sender{
-		Finish:          make(chan bool, 1),
-		Done:            make(chan bool, 1),
+		Finish:          make(chan struct{}),
+		Done:            make(chan struct{}),
 		FanIn:           make(chan ReportLog, FanInBacklog),
 		Acks:            make(chan uint, AckBacklog),
+		Draining:        make(chan struct{}),
+		ForceFinish:     make(chan struct{}),
 		InFlightLimit:   limit,
 		LogEndpoint:     MustParseURL(endPoint).String(),
 		EnvironmentType: environmentType,
@@ -151,20 +169,19 @@ func NewSender(
 // Send sends a ReportLog element to the FanIn channel for transmission.
 // It should not be called after Stop.
 func (s *Sender) Send(log ReportLog) {
-	if s.FanIn == nil {
+	select {
+	case <-s.Draining:
 		s.Warn().Msg(`sending attempted after Stop: ignored`)
 		return
-	}
-	go func() {
+	default:
 		s.FanIn <- log
-	}()
+	}
 }
 
 // Start configures and starts the background sending loop.
 func (s *Sender) Start() {
 	defer func() {
-		// Will not block, because channel has len 1
-		s.Done <- true
+		close(s.Done)
 	}()
 
 	// Normal operation.
@@ -213,18 +230,23 @@ Normal:
 		default:
 			// Go tight loops may be sub-microsecond, so if nothing is going on,
 			// avoid a tight loop to save energy.
-			if len(s.FanIn) == 0 && len(s.Acks) == 0 && len(s.Finish) == 0 {
+			if len(s.FanIn) == 0 && len(s.Acks) == 0 {
 				time.Sleep(QuietLoopPause)
 			}
 		}
 	}
 
+	close(s.Draining)
+
 	// Finishing.
 	for {
-		if len(s.FanIn) == 0 {
+		if len(s.FanIn) == 0 && s.InFlight == 0 {
 			return
 		}
 		select {
+		case <-s.ForceFinish:
+			s.Logger.Warn().Msgf("did not complete in time, dropping %d remaining reports", len(s.FanIn))
+			return
 		// ReportLog to write. Same as normal operation.
 		case rl := <-s.FanIn:
 			s.Logger.Trace().Msg("Finishing sender received log.")
