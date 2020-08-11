@@ -1,8 +1,8 @@
 # Bearer.sh Go agent
 
 This module provides a pure Go HTTP (HTTPS, HTTP/2) transport decorator for Go
-Web API clients. It relies on the https://bearer.sh platform to provide
-metrics observation and anomaly detection.
+Web API clients. It relies on the [Bearer.sh](https://www.bearer.sh) platform
+to provide metrics observation and anomaly detection.
 
 
 ## Getting started
@@ -113,17 +113,16 @@ calls to the Bearer platform, at `https://config.bearer.sh` and `https://logs.be
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](https://example.com) for details on our code of
-conduct, and the process for submitting pull requests to us.
-
-
 ### Running the tests
 
 The run the 540+ tests in the package, you can use `go test` if you wish, or run
-the preconfigured `go test` commands in the `Makefile`:
+the preconfigured `go test` command from the `Makefile`:
 
-- `make test_quick` runs the tests as fast as possible, not checking for race conditions
-- `make test_racy` runs the tests with the race detector, making them significantly slower
+```
+$ make test
+```
+
+(this runs the tests with the race detector)
 
 
 ### Run coding style tests
@@ -131,6 +130,7 @@ the preconfigured `go test` commands in the `Makefile`:
 These tests verify that the code base applies best practices: `make lint`
 
 This should just show the command being run, and display no warnings.
+
 
 ### Versioning
 
@@ -147,13 +147,12 @@ to support to enable them to be sure of the version of the agent actually in use
 
 
 ## Credits / Legal
+
 ### Authors
 
 - **Frédéric G. MARAND** - *Project development* - [OSInet](https://osinet.fr/go)
 - **Manfred TOURON** - *PoC version* - [Manfred.life](https://manfred.life)
-- **Billie THOMPSON** - *"Contributing" template* - [PurpleBooth](https://github.com/PurpleBooth)
-
-<!-- See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project. -->
+- **Bearer.sh** - https://www.bearer.sh
 
 
 ### License
@@ -166,27 +165,7 @@ This project is published under the Apache 2.0 License - see the [LICENSE](LICEN
 - The events package is very much inspired by the
   [PSR-14](https://www.php-fig.org/psr/psr-14/) specification, published under
   the CC-BY-3.0 UNPORTED license for text and MIT License for code.
-- The dependency resolution algorithm in `Description.resolveHashes` is adapted
-  from an [article by Ferry Boender], published under a permissive license:
-
-        This document may be freely distributed, in part or as a whole, on any
-        medium, without the prior authorization of the author, provided that this
-        Copyright notice remains intact, and there will be no obstruction as to
-        the further distribution of this document. You may not ask a fee for the
-        contents of this document, though a fee to compensate for the distribution
-        of this document is permitted.
-
-        Modifications to this document are permitted, provided that the modified
-        document is distributed under the same license as the original document
-        and no copyright notices are removed from this document. All contents
-        written by an author stays copyrighted by that author.
-
-        Failure to comply to one or all of the terms of this license automatically
-        revokes your rights granted by this license
-
-        All brand and product names mentioned in this document are trademarks or
-        registered trademarks of their respective holders.
+- The dependency resolution algorithm in `Description.resolveHashes` takes
+  inspiration from an [article by Ferry Boender](https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html)
 - The well-formed invalid credit card numbers used for sensitive data validation
   were provided by https://www.freeformatter.com/credit-card-number-generator-validator.html
-
-[article by Ferry Boender]: https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html

@@ -96,8 +96,8 @@ func (d Description) FilterDescriptions() (map[string]*filters.FilterDescription
 // receives, resolving dependencies to allow instantiation.
 // The function detects cyclic dependencies, and returns errors accordingly.
 //
-// Algorithm inspired by https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html
-// Published under a permissive license
+// Algorithm inspired by:
+// https://www.electricmonk.nl/docs/dependency_resolving_algorithm/dependency_resolving_algorithm.html
 func (d Description) ResolveHashes(descriptions map[string]*filters.FilterDescription) (filters.FilterMap, error) {
 	// TODO simplify type: filter is always nil.
 	type filterSlice []struct {
