@@ -217,7 +217,7 @@ func (p *DCRProvider) onActiveTopics(_ context.Context, e events.Event) error {
 // Listeners implements the events.ListenerProvider interface.
 func (p DCRProvider) Listeners(e events.Event) []events.Listener {
 	switch e.Topic() {
-	case TopicConnect, TopicRequest, TopicResponse, TopicBodies:
+	case TopicConnect, TopicRequest, TopicResponse, TopicBodies, TopicReport:
 		return []events.Listener{p.onActiveTopics}
 	default:
 		return nil

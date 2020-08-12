@@ -84,7 +84,8 @@ func TestDCRProvider_Listeners(t *testing.T) {
 		{`happy request`, TopicRequest, 1},
 		{`happy response`, TopicResponse, 1},
 		{`happy bodies`, TopicBodies, 1},
-		{`sad report`, TopicReport, 0},
+		{`happy report`, TopicReport, 1},
+		{`sad unknown`, `something_else`, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

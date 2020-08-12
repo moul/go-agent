@@ -85,6 +85,7 @@ func New(secretKey string, opts ...Option) *Agent {
 	a.dispatcher.AddProviders(interception.TopicResponse, dcrp)
 	a.dispatcher.AddProviders(interception.TopicBodies, interception.BodyParsingProvider{}, dcrp)
 	a.dispatcher.AddProviders(interception.TopicReport,
+		dcrp,
 		interception.SanitizationProvider{
 			SensitiveKeys:    a.config.SensitiveKeys(),
 			SensitiveRegexps: a.config.SensitiveRegexps(),
